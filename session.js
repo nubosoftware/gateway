@@ -84,7 +84,7 @@ class Session extends EventEmitter {
      * @param {PlayerConn} playerConnection 
      */
     removePlayerConnection(playerConnection) {
-        this.log(`removePlayerConnection: mChannelType: ${playerConnection.mChannelType}`);
+        //this.log(`removePlayerConnection: mChannelType: ${playerConnection.mChannelType}`);
         if (playerConnection.mChannelType == 0) {
             if (this.mPlayerConnection == playerConnection) {
                 this.mPlayerConnection = null;
@@ -114,7 +114,7 @@ class Session extends EventEmitter {
     addPlatformConnection(platConn) {
         const hash = this.getConnectionHash(platConn.mProcessId, platConn.mChannelType, platConn.mChannelIdx);
         this.mPlatConnections[hash] = platConn;
-        this.log(`addPlatformConnection: ${hash}. len: ${Object.keys(this.mPlatConnections).length}`);
+        //this.log(`addPlatformConnection: ${hash}. len: ${Object.keys(this.mPlatConnections).length}`);
     }
 
     /**
@@ -124,7 +124,7 @@ class Session extends EventEmitter {
     removePlatformConnection(platConn) {
         const hash = this.getConnectionHash(platConn.mProcessId, platConn.mChannelType, platConn.mChannelIdx);
         if (this.mPlatConnections[hash] == platConn) {
-            this.log(`removePlatformConnection: ${hash}`);
+            //this.log(`removePlatformConnection: ${hash}`);
             delete this.mPlatConnections[hash];
             this.checkRemoveSession();
         }
@@ -146,7 +146,7 @@ class Session extends EventEmitter {
             this.log(`Removing session object mPlatConnections: ${Object.keys(this.mPlatConnections).length}, mPlayerChannels: ${Object.keys(this.mPlayerChannels).length}`);
             delete sessions[this.sessionID];
         } else {
-            this.log(`checkRemoveSession mPlatConnections: ${Object.keys(this.mPlatConnections).length}, mPlayerChannels: ${Object.keys(this.mPlayerChannels).length}, this.mPlayerConnection: ${this.mPlayerConnection}`);
+            //this.log(`checkRemoveSession mPlatConnections: ${Object.keys(this.mPlatConnections).length}, mPlayerChannels: ${Object.keys(this.mPlayerChannels).length}, this.mPlayerConnection: ${this.mPlayerConnection}`);
         }
     }
 
@@ -193,7 +193,7 @@ class Session extends EventEmitter {
      */
     associatePlayerWithPlatformConnectionsAndSyncApps(playerConnection) {
         const keys = Object.keys(this.mPlatConnections);
-        this.log(`associatePlayerWithPlatformConnectionsAndSyncApps.. mPlatConnections: ${keys.length}`);
+        //this.log(`associatePlayerWithPlatformConnectionsAndSyncApps.. mPlatConnections: ${keys.length}`);
         for (const hash of keys) {
             const platConn = this.mPlatConnections[hash];
             if (playerConnection.mIsAndroidClient || playerConnection.mIsIOSClient) {

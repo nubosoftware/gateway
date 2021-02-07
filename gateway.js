@@ -6,6 +6,8 @@ let secureCtx;
 const PlayerConn = require('./playerConn');
 const PlatControl = require('./platControl');
 const PlatConn = require('./platConn');
+const { PlatformRTPService } = require('./platformRTPService');
+const { PlayerRTPSocket } = require('./playerRTPSocket');
 const mgmtCall = require('./mgmtCall');
 const tls = require('tls');
 
@@ -65,6 +67,10 @@ async function main() {
             await playerService.listen();
             await registerGateway(playerService, true);
         }
+
+        let platformRTPService = new PlatformRTPService(60005);
+
+        let playerRTPSocket = new PlayerRTPSocket(50005);
 
         logger.info("end of gateway!");
 

@@ -14,21 +14,29 @@ class NetService {
         this.port = port;
         this.tlsOptions = tlsOptions;
         this.connClass = connClass;
+        this.TAG = `${this.serverType}_${this.port}`;
         if (tlsOptions) {
+            //logger.info(`${this.TAG}: tlsOptions: ${JSON.stringify(tlsOptions,null,2)}`);
             this.server = tls.createServer(tlsOptions);
             this.serverType = "tls";
         } else {
             this.server = net.createServer();
             this.serverType = "tcp";
         }
-        this.TAG = `${this.serverType}_${this.port}`;
+
 
 
         const cs = this;
 
-        this.server.on('connection', (socket) => {
-            cs.onConnection(socket);
-        });
+        if (this.serverType == "tcp") {
+            this.server.on('connection', (socket) => {
+                cs.onConnection(socket);
+            });
+        } else {
+            this.server.on('secureConnection', (socket) => {
+                cs.onConnection(socket);
+            });
+        }
         this.server.on('close', () => {
             cs.onClose();
         });
@@ -37,6 +45,7 @@ class NetService {
         });
 
         this.server.on('listening', () => {
+            logger.info(`${this.TAG}: listening`);
             if (this.waitPromise) {
                 this.waitPromise.resolve();
                 this.waitPromise = null;

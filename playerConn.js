@@ -6,7 +6,9 @@ const NetConn = require('./netConn');
 const { Session, getSession } = require('./session');
 const jwt = require('jsonwebtoken');
 const mgmtCall = require('./mgmtCall');
-const CompressedStream = require('./compressedStream');
+const { RTPPacket } = require('./rtpPacket');
+const dgram = require('dgram');
+const { BWStats } = require('./bwStats');
 
 const {
     PlayerCmd,
@@ -49,6 +51,7 @@ const NUM_OF_CAMERAS = 3;
 
 let playerConnectionsByTokens = {};
 let playerConnectionByPlatformUser = {}
+let playerConnectionByRTPUploadAddr = {};
 class PlayerConn extends NetConn {
     /**
      * 
@@ -63,15 +66,16 @@ class PlayerConn extends NetConn {
 
     async runPlayerConn() {
         this.log(`runPlayerConn`);
+
         this.mStopThread = false;
         this.mIsReadBytesCount = false;
+        this.countBWStats = true;
         try {
-
             while (!this.mStopThread) {
                 await this.handlePlayer2PlatformCommands();
             }
         } catch (err) {
-            logger.error(`${this.TAG}: Error`, err);
+            logger.error(`${this.TAG}: Error ${err}`);
         }
         await this.removePlayerConnection();
         if (!this.socket.destroyed) {
@@ -81,8 +85,14 @@ class PlayerConn extends NetConn {
 
             }
         }
+        if (this.bwStats) {
+            if (this.mChannelType == 0) {
+                this.bwStats.stop();
+            }
+            this.bwStats = null;
+        }
 
-        logger.info(`${this.TAG}: finished.`);
+        //logger.info(`${this.TAG}: finished.`);
     }
 
     isValidSessionId(sessionId) {
@@ -98,7 +108,7 @@ class PlayerConn extends NetConn {
         let sessionId;
         let isValidSessionId = true;
         const pc = this;
-        this.log(`handlePlayer2PlatformCommands.`);
+        //this.log(`handlePlayer2PlatformCommands.`);
 
         if (this.mIsReadBytesCount) {
             bytesCount = await pc.readInt();
@@ -173,7 +183,7 @@ class PlayerConn extends NetConn {
                     PlatformCtrlCmdSize.changeOrientation);
                 break;
             case PlayerCmd.goToSleep:
-                this.DEBUG = true;
+                //this.DEBUG = true;
                 await pc.sendCmdToPlatformController(PlatformCtrlCmd.goToSleep, bytesCount, PlatformCtrlCmdSize.goToSleep);
                 break;
             case PlayerCmd.wakeUp:
@@ -246,7 +256,7 @@ class PlayerConn extends NetConn {
         final byte[] cmdData = data;
 	    handleSendCmdToPlatform(cmdCode, controllerBytesCount, cmdData);
         */
-        this.log(`sending command to platform controller`);
+        //this.log(`sending command to platform controller`);
     }
     async sendCmdToApplication(cmdCode, bytesCount) {
         //this.log(`sendCmdToApplication. cmdCode: ${cmdCode}, bytesCount: ${bytesCount}`);
@@ -283,11 +293,7 @@ class PlayerConn extends NetConn {
 
     }
 
-    setCompressStream() {
-        this.compressedStream = new CompressedStream(this.socket);
-        this.compressedStream.compressedInput = true;
-        this.compressedOutput = true;
-    }
+
 
     async handleChannelLogin(bytesCount) {
         this.mPlayerId = await this.readInt();
@@ -313,8 +319,6 @@ class PlayerConn extends NetConn {
         }
         this.mIsReadBytesCount = true;
 
-        //this.compressedStream.compressedInput = true;
-        //this.compressedOutput = true;
 
         const session = getSession(this.mSessionId);
         if (!session.validSession) {
@@ -332,8 +336,15 @@ class PlayerConn extends NetConn {
             this.rtpAudioUpPort = session.sessionParams.audioStreamPort;
             this.log("PlayerConnection::handlePlayerLoginOnPlatform. rtpAudioUpInetAddress: " + this.rtpAudioUpInetAddress + ", rtpAudioUpPort: " + this.rtpAudioUpPort);
         }
+        if (this.mChannelType == 2) {
+            if (session.sessionParams.nuboglListenPort && session.sessionParams.nuboglListenHost) {
+                this.sendNuboGLStartStop(true);
+            }
+        }
 
         session.addPlayerConnection(this);
+
+        this.setCompressStream(true, true);
 
         let buf = Buffer.alloc(5);
         buf.writeInt32BE(GWStatusCode.OK);
@@ -341,7 +352,7 @@ class PlayerConn extends NetConn {
         await this.writeToClient(LOGIN_ACK_SIZE_WITH_COMPRESS, -1,
             DrawCmd.drawPlayerLoginAck, -1, buf, true);
 
-        this.setCompressStream();
+        this.setBWStats();
 
     }
 
@@ -429,8 +440,6 @@ class PlayerConn extends NetConn {
 
         this.mIsReadBytesCount = true;
 
-        //this.compressedStream.compressedInput = true;
-        //this.compressedOutput = true;
 
 
 
@@ -474,7 +483,7 @@ class PlayerConn extends NetConn {
         this.rtpAudioUpInetAddress = session.sessionParams.platform_ip;
         this.rtpAudioUpPort = session.sessionParams.audioStreamPort;
 
-        this.setCompressStream();
+        this.setCompressStream(true, true);
 
         await this.handlePlayerLoginOnPlatform(session);
 
@@ -483,7 +492,38 @@ class PlayerConn extends NetConn {
 
         await session.sendSyncToPlatformApps();
 
+        this.setBWStats();
 
+
+    }
+
+    setBWStats() {
+        if (!Common.settings.showBWStats || Common.settings.showBWStats == "false") {
+            return;
+        }
+        //this.DEBUG = true;
+        if (!this.bwStats) {
+            if (this.mChannelType == 0) {
+                this.bwStats = new BWStats(this.TAG);
+            } else {
+                if (this.mSession && this.mSession.mPlayerConnection) {
+                    this.bwStats = this.mSession.mPlayerConnection.bwStats;
+                }
+                if (!this.bwStats) {
+                    this.log(`Cannot find bwStats in main player connection!`);
+                }
+            }
+            if (this.bwStats) {
+                if (this.outBytes) {
+                    this.log(`Add initial ${this.outBytes} out bytes`);
+                    this.bwStats.addOutBytes(this.outBytes);
+                }
+                if (this.inBytes) {
+                    this.log(`Add initial ${this.inBytes} in bytes`);
+                    this.bwStats.addInBytes(this.inBytes);
+                }
+            }
+        }
     }
 
     /**
@@ -514,11 +554,10 @@ class PlayerConn extends NetConn {
         } else {
             let buf = Buffer.alloc(4);
             buf.writeInt32BE(GWStatusCode.OK);
-            await this.writeToClientOld(8, PlatformConnection.DrawCmd.drawPlayerLoginAck,
+            await this.writeToClientOld(8, DrawCmd.drawPlayerLoginAck,
                 buf, true);
         }
         session.associatePlayerWithPlatformConnectionsAndSyncApps(this);
-        session.mPlatformController.addPlayerConnection(this);
 
 
         await session.mPlatformController.writeQ.push(async() => {
@@ -595,7 +634,7 @@ class PlayerConn extends NetConn {
         } else {
             let buf = Buffer.alloc(4);
             buf.writeInt32BE(statusCode);
-            await this.writeToClientOld(8, PlatformConnection.DrawCmd.drawPlayerLoginAck,
+            await this.writeToClientOld(8, DrawCmd.drawPlayerLoginAck,
                 buf, true);
         }
     }
@@ -604,9 +643,10 @@ class PlayerConn extends NetConn {
         if (!this.mIsDuplicatedSession && this.mSession) {
             await this.mSession.validateSession(1, true);
         }
-
-        if (this.mSession && this.mSession.mPlatformController) {
-            this.mSession.mPlatformController.removePlayerConnection(this);
+        if (this.mChannelType == 2) {
+            if (this.mSession.sessionParams.nuboglListenPort && this.mSession.sessionParams.nuboglListenHost) {
+                this.sendNuboGLStartStop(false);
+            }
         }
         if (this.mSession) {
             this.mSession.removePlayerConnection(this);
@@ -624,13 +664,90 @@ class PlayerConn extends NetConn {
         if (playerConnectionByPlatformUser[platformUserKey] == this) {
             delete playerConnectionByPlatformUser[platformUserKey];
         }
+    }
 
+    /**
+     * 
+     * @param {string} token
+     * @returns {PlayerConn} 
+     */
+    static getPlayerConnectionByToken(token) {
+        return playerConnectionsByTokens[token];
+    }
 
+    /**
+     * 
+     * @param {string} jwtToken
+     * @returns {boolean} 
+     */
+    validateJwtToken(jwtToken) {
+        const secret = Buffer.from(this.mSessionId, "hex");
+        this.log(`Checking JWT. secret len: ${secret.length}`);
+        try {
+            let decoded = jwt.verify(jwtToken, secret, { subject: this.email });
+            this.log(`Token validated. decoded: ${JSON.stringify(decoded,null,2)}`);
+            return true;
+        } catch (err) {
+            this.log(`Invalid token. err: ${err}`);
+            return false;
+        }
+    }
+
+    setRTPUploadAddr(address, port) {
+        if (this.mPRTPUploadAddr) {
+            this.removeRTPUploadAddr();
+        }
+        this.mPRTPUploadAddr = `${address}:${port}`;
+        playerConnectionByRTPUploadAddr[this.mPRTPUploadAddr] = this;
+    }
+
+    removeRTPUploadAddr() {
+        if (!this.mPRTPUploadAddr) {
+            return;
+        }
+        delete playerConnectionByRTPUploadAddr[this.mPRTPUploadAddr];
+        this.mPRTPUploadAddr = null;
+    }
+
+    /**
+     * 
+     * @param {string} address 
+     * @param {number} port 
+     * @returns {PlayerConn}
+     */
+    static getPlayerConnctionByRTPUploadAddr(address, port) {
+        const sa = `${address}:${port}`;
+        return playerConnectionByRTPUploadAddr[sa];
+    }
+
+    /**
+     * 
+     * @param {number} platformUserKey 
+     * @returns {PlayerConn}
+     */
+    static getPlayerConnByPlatUser(platformUserKey) {
+        return playerConnectionByPlatformUser[platformUserKey];
     }
 
     async handleAudioInPacket() {
         let data = await this.readByteArr();
         this.log(`handleAudioInPacket. size: ${data.length}`);
+        //this.rtpAudioUpInetAddress
+        if (!this.audioInPacketNum) {
+            this.audioInPacketNum = 1;
+        } else {
+            ++this.audioInPacketNum;
+        }
+        const rtpPacket = new RTPPacket(96, this.audioInPacketNum, this.audioInPacketNum * 960, 1337, data);
+        //this.log(`test rtp: srcBuffer: ${rtpPacket.srcBuffer.toString('hex')}, data: ${data.toString('hex')}`);
+        if (!this.audioInUDPSocket) {
+            this.audioInUDPSocket = dgram.createSocket('udp4');
+        }
+
+        this.audioInUDPSocket.send(rtpPacket.srcBuffer, this.rtpAudioUpPort, this.rtpAudioUpInetAddress);
+
+
+
     }
 
     async sendSyncToPlatform() {
@@ -664,8 +781,8 @@ class PlayerConn extends NetConn {
         if (this.mIsIOSClient || this.mIsAndroidClient) {
             clientRxKbps = await this.readLong();
         }
-        /*if (mChannelType == 0) {
-            Log.e(TAG+" handleRoundTripData. clientRxKbps: "+clientRxKbps+", sendTime: "+sendTime+", wndId: "+wndId+", processId: "+processId);
+        /*if (this.mChannelType == 0) {
+            this.log("handleRoundTripData. clientRxKbps: " + clientRxKbps + ", sendTime: " + sendTime + ", wndId: " + wndId + ", processId: " + processId);
         }*/
 
 
@@ -734,6 +851,78 @@ class PlayerConn extends NetConn {
 
     }
 
+    sendNuboGLStartStop(isStart) {
+        if (isStart) {
+            this.log(`Start nubo gl stream. host :${this.mSession.sessionParams.nuboglListenHost}, port: ${this.mSession.sessionParams.nuboglListenPort}`);
+        } else {
+            this.log(`Stop nubo gl stream..`);
+        }
+        const platformRTPService = require('./platformRTPService').PlatformRTPService.getInstance();
+        if (platformRTPService) {
+            let buf = Buffer.allocUnsafe(1);
+            buf.writeUInt8(isStart ? 1 : 2);
+            platformRTPService.sendPacket(buf, this.mSession.sessionParams.nuboglListenHost, this.mSession.sessionParams.nuboglListenPort);
+        }
+    }
+
+    /**
+     * 
+     * @param {RTPPacket} rtpPacket 
+     */
+    sendMediaPacket(rtpPacket, rinfo) {
+        if (rtpPacket.payloadType == 96) { // audio packet
+            if (this.mChannelType == 4) {
+                // if this is audio channel - send the audio in the pc
+                let buf = Buffer.allocUnsafe(rtpPacket.payload.length + 4);
+                buf.writeInt32BE(rtpPacket.payload.length);
+                rtpPacket.payload.copy(buf, 4);
+                const bytesCount = CMD_HEADER_SIZE + buf.length;
+                this.writeToClient(bytesCount, -1,
+                    DrawCmd.audioPacket, -1, buf, true);
+            } else if (this.mSession != null && this.mSession.mAudioChannelPlayerConnection != null && this.mSession.mAudioChannelPlayerConnection != this) {
+                this.mSession.mAudioChannelPlayerConnection.sendMediaPacket(rtpPacket, rinfo);
+            } else if (this.audioConnDown != null) {
+                this.audioConnDown.sendDownData(rtpPacket.payload, rtpPacket.payload.length);
+            } else if (this.rtpAudioDownInetAddress != null && this.rtpAudioDownPort > 0 && this.rtpSocket) {
+                this.rtpSocket.sendDataToPlayer(this.rtpAudioDownInetAddress, this.rtpAudioDownPort, rtpPacket);
+            } else {
+                //this.log("sendMediaPacket. channel not found");
+            }
+        } else if (rtpPacket.payloadType == 97) { // opengl packet
+            if (this.mChannelType == 2) {
+                // temporary check sequance number ot remove duplicate streams
+                /*if (this.openGLSN && this.openGLSN > rtpPacket.sequenceNumber) {
+                    if (!this.openGLSkipPackets) this.openGLSkipPackets = 0;
+                    this.openGLSkipPackets++;
+                    if (this.openGLSkipPackets < 10) {
+                        this.log(`Skip opengl packrt with SN ${rtpPacket.sequenceNumber}`);
+                        return;
+                    }
+                }
+                this.openGLSkipPackets = 0;
+                this.openGLSN = rtpPacket.sequenceNumber;*/
+                //this.log(`Send opengl packrt with SN ${rtpPacket.sequenceNumber}`);
+                // if this is opengl channel - send the video
+                if (!this.mSession.sessionParams.nuboglListenHost) {
+                    this.mSession.sessionParams.nuboglListenHost = rinfo.address;
+                    this.sendNuboGLStartStop(true);
+                }
+                let buf = Buffer.allocUnsafe(rtpPacket.srcBuffer.length + 4);
+                buf.writeInt32BE(rtpPacket.srcBuffer.length);
+                rtpPacket.srcBuffer.copy(buf, 4);
+                const bytesCount = CMD_HEADER_SIZE + buf.length;
+                //this.log("Sending open gl packet to channel");
+                this.writeToClient(bytesCount, -1,
+                    DrawCmd.openGLVideoPacket, -1, buf, true);
+
+            } else if (this.mSession != null && this.mSession.mOpenGLChannelPlayerConnection != null && this.mSession.mOpenGLChannelPlayerConnection != this) {
+                this.mSession.mOpenGLChannelPlayerConnection.sendMediaPacket(rtpPacket, rinfo);
+            } else {
+                //this.log("sendMediaPacket. open gl channel not found");
+            }
+        }
+    }
+
 
 
     /**
@@ -769,17 +958,21 @@ class PlayerConn extends NetConn {
         }
         let writeUnCompressed = false;
         if (data.length > 200 && (cmdcode == DrawCmd.drawBitmap ||
-                cmdcode == DrawCmd.drawBitmap1 ||
+                cmdcode == DrawCmd.mediaCodecCmd ||
+                /*cmdcode == DrawCmd.drawBitmap1 ||*/
                 cmdcode == DrawCmd.drawBitmap6 ||
                 cmdcode == DrawCmd.drawBitmap8 ||
                 cmdcode == DrawCmd.ninePatchDraw ||
                 cmdcode == DrawCmd.openGLVideoPacket ||
-                cmdcode == DrawCmd.networkTestDnl) ||
-            data.length > COMPRESSION_BUFFER_SIZE) {
+                cmdcode == DrawCmd.networkTestDnl)
+            /*||
+                       data.length > COMPRESSION_BUFFER_SIZE*/
+        ) {
+            //this.log(`Write uncompress. cmdcode: ${cmdcode}, size: ${bytesCount}`);
             writeUnCompressed = true;
         }
+        //this.log(`Write chunk. cmdcode: ${cmdcode}, size: ${bytesCount}, writeUnCompressed: ${writeUnCompressed}`);
         await this.writeQ.push(async() => {
-
             await this.writeChunk(data, writeUnCompressed);
             if (flushBuffer) {
                 await this.compressAndSend();
@@ -793,7 +986,7 @@ class PlayerConn extends NetConn {
      * @param {*} cmdcode 
      * @param {Buffer} buf 
      */
-    async writeToClientOld(bytesCount, cmdcode, buf, flushBuffer) {
+    async writeToClientOld(bytesCount, cmdcode, buff, flushBuffer) {
         const data = Buffer.alloc(bytesCount);
         data.writeInt32BE(cmdcode);
         let offset = 4;
@@ -801,7 +994,7 @@ class PlayerConn extends NetConn {
             buff.copy(data, offset);
         }
         await this.writeQ.push(async() => {
-            await this.writeChunk(data, writeUnCompressed);
+            await this.writeChunk(data, false);
             if (flushBuffer) {
                 await this.compressAndSend();
             }

@@ -150,13 +150,13 @@ class PlatConn extends NetConn {
             }
         }
         if (!wroteData) {
-            this.log(`Cannot write data as player connection is not available. this.mSession: ${this.mSession}, this.mSession.mPlayerConnection: ${( playerConn)}`);
+            this.log(`Cannot write data as player connection is not available. this.mSession: ${this.mSession}, cmdcode: ${( cmdcode)}`);
         }
     }
 
     sendInitProcessFPS(netQ) {
         if (this.mSession) {
-            this.log("sendInitProcessFPS..");
+            //this.log("sendInitProcessFPS..");
             this.writeQ.push(async() => {
                 await this.writeInt(PlayerCmd.initProcessFPS);
                 await this.writeString(this.mSessionId);
@@ -169,7 +169,7 @@ class PlatConn extends NetConn {
 
     sendSync() {
         if (this.mSession) {
-            this.log("sendSync..");
+            //this.log("sendSync..");
             this.writeQ.push(async() => {
                 await this.writeInt(PlayerCmd.sync);
                 await this.writeString(this.mSessionId);
@@ -179,7 +179,7 @@ class PlatConn extends NetConn {
 
     killUserApps() {
         if (this.mSession) {
-            this.log("killUserApps..");
+            //this.log("killUserApps..");
             this.writeQ.push(async() => {
                 await this.writeInt(PlayerCmd.killUserApps);
                 await this.writeString(this.mSessionId);

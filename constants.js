@@ -137,6 +137,7 @@ const DrawCmd = Object.freeze({
     glRenderCmd: -128,
     glAttachToWindow: -127,
     audioCmd: -126,
+    mediaCodecCmd: -125,
     audioPacket: -121,
     openGLVideoPacket: -120,
 

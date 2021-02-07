@@ -5,7 +5,7 @@ const logger = Common.logger(__filename);
 const { Readable, Duplex } = require('stream');
 const zlib = require('zlib');
 
-class CompressedStream extends Duplex {
+class CompressedStream extends Readable {
     /**
      * 
      * @param {Readable} readable  - Source readble
@@ -16,32 +16,31 @@ class CompressedStream extends Duplex {
         //logger.info(`constructor. readable: ${readable}, Readable: ${readable instanceof Readable}`);
         this.stream = readable;
         this.compressedInput = false;
-        this.compressedOutput = false;
         const cs = this;
 
         const finishHandler = () => {
-            //logger.info(`finishHandler()`);
+            logger.info(`finishHandler()`);
             removeListeners();
             cs._closed = true;
             cs.emit('close');
         };
 
         const closeHandler = () => {
-            //logger.info(`closeHandler()`);
+            logger.info(`closeHandler()`);
             removeListeners();
             cs._closed = true;
             cs.emit('close');
         };
 
-        const drainHandler = () => {
-            //logger.info(`drainHandler()`);
-            removeListeners();
+        /*const drainHandler = () => {
+            logger.info(`drainHandler()`);
+            //removeListeners();
             cs.emit('drain');
-        };
+        };*/
 
         const errorHandler = (err) => {
-            //logger.error(`errorHandler()`, err);
-            removeListeners();
+            logger.error(`errorHandler()`, err);
+            //removeListeners();
             cs._err = err;
             cs.emit('error', err);
         };
@@ -49,17 +48,17 @@ class CompressedStream extends Duplex {
         const removeListeners = () => {
             cs.stream.removeListener("close", closeHandler);
             cs.stream.removeListener("error", errorHandler);
-            cs.stream.removeListener("drain", drainHandler);
+            //cs.stream.removeListener("drain", drainHandler);
             cs.stream.removeListener("finish", finishHandler);
         }
 
         this.stream.on("close", closeHandler);
-        this.stream.on("drain", drainHandler);
+        //this.stream.on("drain", drainHandler);
         this.stream.on("error", errorHandler);
         this.stream.on("finish", finishHandler);
     }
 
-    _write(chunk, encoding, callback) {
+    /*_write(chunk, encoding, callback) {
         const cr = this;
         if (!this.compressedOutput) {
             //logger.info(`_write(), encoding: ${encoding}, callback: ${callback}`);
@@ -108,7 +107,7 @@ class CompressedStream extends Duplex {
                 });
             }
         }
-    }
+    }*/
 
     _read(size) {
         if (this.DEBUG) logger.info(`_read start. stream: ${this.stream}, compressedInput: ${this.compressedInput}`);
@@ -184,7 +183,7 @@ class CompressedStream extends Duplex {
 
         const closeHandler = () => {
             removeListeners();
-            //logger.info(`closeHandler`);
+            logger.info(`_read closeHandler`);
         };
 
         const endHandler = () => {
@@ -194,7 +193,7 @@ class CompressedStream extends Duplex {
 
         const errorHandler = (err) => {
             removeListeners()
-                //logger.error(`errorHandler`, err);
+            logger.error(`_read errorHandler`, err);
         };
         const removeListeners = () => {
             cr.stream.removeListener("close", closeHandler);

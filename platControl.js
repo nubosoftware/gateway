@@ -5,7 +5,6 @@ const logger = Common.logger(__filename);
 const NetConn = require('./netConn');
 const jwt = require('jsonwebtoken');
 const mgmtCall = require('./mgmtCall');
-const PlayerConn = require('./playerConn');
 const PlatConn = require('./platConn');
 const {
     PlayerCmd,
@@ -24,7 +23,7 @@ class PlatControl extends NetConn {
      */
     constructor(socket) {
         super(socket);
-        this.mPlayerConnections = [];
+
         this.mPlatformConnections = [];
         this.runPlatControl();
     }
@@ -120,8 +119,9 @@ class PlatControl extends NetConn {
                     const recordInputSource = await this.readInt();
                     const speakerPhoneOn = await this.readBoolean();
 
-
-                    const playerConn = this.mPlayerConnections[userId];
+                    const platformUserKey = ((this.mPlatformId & 0xFFFF) << 16) | (userId & 0xFFFF);
+                    const PlayerConn = require('./playerConn');
+                    const playerConn = PlayerConn.getPlayerConnByPlatUser(platformUserKey);
 
                     if (playerConn != null) {
                         this.log("Sending audio params to player");
@@ -146,23 +146,6 @@ class PlatControl extends NetConn {
         }
     }
 
-    /**
-     * 
-     * @param {PlayerConn} playerConn 
-     */
-    addPlayerConnection(playerConn) {
-        this.mPlayerConnections[playerConn.mPlayerId] = playerConn;
-    }
-
-    /**
-     * 
-     * @param {PlayerConn} playerConn 
-     */
-    removePlayerConnection(playerConn) {
-        if (this.mPlayerConnections[playerConn.mPlayerId] == playerConn) {
-            delete this.mPlayerConnections[playerConn.mPlayerId];
-        }
-    }
 
 
 

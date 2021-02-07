@@ -7,6 +7,8 @@ const { PromiseDuplex } = require("promise-duplex");
 const CompressedStream = require('./compressedStream');
 const EventEmitter = require('events');
 const SequentialTaskQueue = require('sequential-task-queue').SequentialTaskQueue;
+const zlib = require('zlib');
+
 
 const COMPRESSION_BUFFER_SIZE = 64000;
 
@@ -20,44 +22,51 @@ class NetConn extends EventEmitter {
         super();
         this.socket = socket;
         this.TAG = `${this.__proto__.constructor.name}_${socket.remoteAddress}:${socket.remotePort}`;
-        this.compressedStream = socket; //new CompressedStream(socket);
-        this.compressedStream.compressedInput = false;
-        this.compressedStream.compressedOutput = false;
-        if (this.__proto__.constructor.name == "PlayerConn") this.compressedStream.DEBUG = true;
         this.compressedOutput = false;
+        this.compressedInput = false;
         this.writeQ = new SequentialTaskQueue();
         const nc = this;
 
         const errorHandler = (err) => {
-            logger.error(`${nc.TAG}. error on soccket`, err);
+            //logger.error(`${nc.TAG}. error on soccket`, err);
             nc._err = err;
             nc.emit('error', err);
-            try {
-                nc.socket.destroy();
-            } catch (err) {
-
-            }
         };
 
         const closeHandler = () => {
-            logger.info(`${nc.TAG}. compressedStream closed`);
-            nc.compressedStream.removeListener("error", errorHandler);
-            nc.compressedStream.removeListener("close", closeHandler)
+            //logger.info(`${nc.TAG}. socket closed`);
+
+            nc.socket.removeListener("error", errorHandler);
+            nc.socket.removeListener("close", closeHandler)
             nc.emit('close');
-            try {
+            /*try {
                 nc.socket.destroy();
             } catch (err) {
 
-            }
+            }*/
         }
 
-        this.compressedStream.on("error", errorHandler);
-        this.compressedStream.on("close", closeHandler)
+        this.socket.on("error", errorHandler);
+        this.socket.on("close", closeHandler)
     }
 
     log(msg) {
         logger.info(`${this.TAG}: ${msg}`);
     }
+
+    setCompressStream(isCompressInput, isCompressOutput) {
+        //this.log(`setCompressStream. isCompressInput: ${isCompressInput},  isCompressOutput: ${isCompressOutput}`)
+        if (isCompressInput) {
+            this.compressedStream = new CompressedStream(this.socket);
+            this.compressedStream.compressedInput = true;
+            this.compressedInput = true;
+        }
+        if (isCompressOutput) {
+            this.compressedOutput = true;
+        }
+    }
+
+
 
 
     /**
@@ -70,67 +79,97 @@ class NetConn extends EventEmitter {
         let debug = false;
         if (this.__proto__.constructor.name == "PlayerConn") {
             //this.log(`readChunk. size: ${size}`);
-            debug = true;
+            //debug = true;
         }
         if (this.DEBUG) this.log(`readChunk. size: ${size}`);
+        let stream;
+        if (this.compressedInput && this.compressedStream) {
+            stream = this.compressedStream;
+        } else {
+            stream = this.socket;
+        }
         return new Promise((resolve, reject) => {
             if (nc._err) {
                 reject(nc._err);
                 return;
             }
+            let isResolved = false;
             const readableHandler = () => {
                 if (this.DEBUG) this.log(`readChunk. readableHandler`);
                 //if (this.__proto__.constructor.name == "PlayerConn") this.log(`readChunk. readableHandler`);
-                let chunk = nc.compressedStream.read(size);
-                //if (this.__proto__.constructor.name == "PlayerConn") this.log(`readChunk. readableHandler. chunk: ${chunk}`);
-                if (chunk) {
-                    if (this.DEBUG) this.log(`readChunk. resolve: ${size}`);
+                try {
+                    let chunk = stream.read(size);
+                    //if (this.__proto__.constructor.name == "PlayerConn") this.log(`readChunk. readableHandler. chunk: ${chunk}`);
+                    if (chunk) {
+                        if (this.DEBUG) this.log(`readChunk. resolve: ${size}`);
+                        removeListeners();
+                        if (!isResolved) {
+                            isResolved = true;
+                            if (this.bwStats || this.countBWStats) {
+                                this.addInBytes(size);
+                            }
+                            resolve(chunk);
+                        }
+                        return;
+                    }
+                } catch (err) {
+                    //this.log(`readChunk error: ${err}`);
                     removeListeners();
-                    resolve(chunk);
-                    return;
+                    if (!isResolved) {
+                        isResolved = true;
+                        reject(err);
+                    }
                 }
             };
             const closeHandler = () => {
                 if (debug) this.log("readChunk closeHandler");
                 removeListeners();
-                reject(new Error("Connection closed"))
+                if (!isResolved) {
+                    isResolved = true;
+                    reject(new Error("Connection closed"));
+                }
             };
 
             const endHandler = () => {
                 if (debug) this.log("readChunk endHandler");
                 removeListeners();
-                reject(new Error("Connection ended"))
+                if (!isResolved) {
+                    isResolved = true;
+                    reject(new Error("Connection ended"));
+                }
             };
 
             const errorHandler = (err) => {
                 if (debug) this.log("readChunk errorHandler: " + err);
                 removeListeners()
-                reject(err)
+                if (!isResolved) {
+                    isResolved = true;
+                    reject(err)
+                }
             };
             const removeListeners = () => {
-                nc.compressedStream.removeListener("close", closeHandler);
-                nc.compressedStream.removeListener("error", errorHandler);
-                nc.compressedStream.removeListener("end", endHandler);
-                nc.compressedStream.removeListener("readable", readableHandler);
+                stream.removeListener("close", closeHandler);
+                stream.removeListener("error", errorHandler);
+                stream.removeListener("end", endHandler);
+                stream.removeListener("readable", readableHandler);
             }
-            nc.compressedStream.on("close", closeHandler)
-            nc.compressedStream.on("end", endHandler)
-            nc.compressedStream.on("error", errorHandler)
-            nc.compressedStream.on('readable', readableHandler);
+            stream.on("close", closeHandler)
+            stream.on("end", endHandler)
+            stream.on("error", errorHandler)
+            stream.on('readable', readableHandler);
         });
     }
 
     async compressAndSend() {
-        if (!this.compressArr || this.compressBuffPos == 0) {
+        if (!this.compressedOutput || !this.compressArr || this.compressBuffPos == 0) {
             return;
         }
-
         const sendBuff = Buffer.from(this.compressArr.buffer, 0, this.compressBuffPos);
-        this.compressedStream.compressedOutput = true;
+
         ///*if (this.DEBUG) {
         //this.log(`compressAndSend: this.compressBuffPos: ${this.compressBuffPos}, sendBuff : ${sendBuff.length}`);
         //}*/
-        await this.writeChunkImp(sendBuff);
+        await this.writeChunkImp(sendBuff, false);
         this.compressBuffPos = 0;
     }
 
@@ -152,11 +191,9 @@ class NetConn extends EventEmitter {
                     // send preious compressed buffer
                     await this.compressAndSend();
                 }
-                this.compressedStream.doNotCompressChunk = true;
-                return await this.writeChunkImp(chunk);
+                return await this.writeChunkImp(chunk, true);
             } else {
                 // write compress data
-                this.compressedStream.doNotCompressChunk = false;
                 if (this.compressBuffPos + chunk.length > COMPRESSION_BUFFER_SIZE) {
                     await this.compressAndSend();
                 }
@@ -165,15 +202,16 @@ class NetConn extends EventEmitter {
                     this.compressBuffPos += chunk.length;
                     //this.log(`Add write data of size: ${chunk.length}. total buffer: ${this.compressBuffPos}`);
                 } else {
-                    this.log(`large buffer for compression. divide it`);
+                    //this.log(`large buffer for compression. divide it`);
                     let cnt = 0;
 
                     while (cnt < chunk.length) {
                         const remains = (chunk.length - cnt);
                         let len = (remains > COMPRESSION_BUFFER_SIZE ? COMPRESSION_BUFFER_SIZE : remains);
-                        chunk.copy(this.compressBuff, 0, cnt, len);
+                        //chunk.copy(this.compressBuff, 0, cnt, len);
+                        this.copyBuff(chunk, this.compressBuff, cnt, 0, len);
                         this.compressBuffPos = len;
-                        this.log(`Sending ${len} bytes from offset ${cnt}`);
+                        //this.log(`Sending ${len} bytes from offset ${cnt}`);
                         await this.compressAndSend();
                         cnt += len;
                     }
@@ -185,7 +223,25 @@ class NetConn extends EventEmitter {
         }
     }
 
-    writeChunkImp(chunk) {
+    /**
+     * 
+     * @param {Buffer} srcBuff 
+     * @param {Buffer} targetBuff 
+     * @param {*} offsetSrc 
+     * @param {*} offsetTarget 
+     * @param {*} length 
+     */
+    copyBuff(srcBuff, targetBuff, offsetSrc, offsetTarget, length) {
+        if (!length) {
+            length = srcBuff.length - offsetSrc;
+        }
+        for (let i = 0; i < length; i++) {
+            const b = srcBuff.readUInt8(i + offsetSrc);
+            targetBuff.writeUInt8(b, i + offsetTarget);
+        }
+    }
+
+    writeChunkImp(chunk, doNotCompressChunk) {
         const nc = this;
         return new Promise((resolve, reject) => {
             if (nc._err) {
@@ -216,17 +272,89 @@ class NetConn extends EventEmitter {
             };
 
             const removeListeners = () => {
-                nc.compressedStream.removeListener("close", closeHandler);
-                nc.compressedStream.removeListener("error", errorHandler);
-                nc.compressedStream.removeListener("end", endHandler);
+                nc.socket.removeListener("close", closeHandler);
+                nc.socket.removeListener("error", errorHandler);
+                nc.socket.removeListener("end", endHandler);
             }
-            nc.compressedStream.on("close", closeHandler);
-            nc.compressedStream.on("end", endHandler);
-            nc.compressedStream.on("error", errorHandler);
-            nc.compressedStream.write(chunk, writeHandler);
+            nc.socket.on("close", closeHandler);
+            nc.socket.on("end", endHandler);
+            nc.socket.on("error", errorHandler);
+            if (!this.compressedOutput) {
+                try {
+                    nc.socket.write(chunk, writeHandler);
+                    if (this.bwStats || this.countBWStats) {
+                        this.addOutBytes(chunk.length);
+                    }
+                } catch (err) {
+                    nc.log(`write error: ${err}`);
+                    errorHandler(err);
+                }
+            } else {
+                if (doNotCompressChunk) {
+                    const buf = Buffer.alloc(5);
+                    buf.writeUInt8(0);
+                    buf.writeUInt32BE(chunk.length, 1);
+                    try {
+                        nc.socket.write(buf);
+                        nc.socket.write(chunk, writeHandler);
+                        if (this.bwStats || this.countBWStats) {
+                            this.addOutBytes(chunk.length + 5);
+                        }
+                    } catch (err) {
+                        nc.log(`write error: ${err}`);
+                        errorHandler(err);
+                    }
+                    //logger.info(`write compress stream di: 0, len: ${chunk.length}, chunk: ${(chunk.length < 50 ? chunk.toString('hex') : "")}`);
+                } else {
+                    zlib.deflate(chunk, (err, deflatted) => {
+                        if (err) {
+                            nc.log(`deflate error: ${err}`);
+                            errorHandler(err);
+                        } else {
+                            const buf = Buffer.alloc(5);
+                            buf.writeUInt8(1);
+                            buf.writeUInt32BE(deflatted.length, 1);
+                            try {
+                                nc.socket.write(buf);
+                                nc.socket.write(deflatted, writeHandler);
+                                if (this.bwStats || this.countBWStats) {
+                                    this.addOutBytes(deflatted.length + 5);
+                                }
+                            } catch (err) {
+                                nc.log(`write error: ${err}`);
+                                errorHandler(err);
+                            }
+                            //logger.info(`write compress stream di: 1, len: ${deflatted.length}, source len: ${chunk.length}`);
+                        }
+                    });
+                }
+            }
 
         });
     }
+
+    addOutBytes(bytes) {
+        if (this.bwStats) {
+            this.bwStats.addOutBytes(bytes);
+        } else {
+            if (!this.outBytes) {
+                this.outBytes = 0;
+            }
+            this.outBytes += bytes;
+        }
+    }
+
+    addInBytes(bytes) {
+        if (this.bwStats) {
+            this.bwStats.addInBytes(bytes);
+        } else {
+            if (!this.inBytes) {
+                this.inBytes = 0;
+            }
+            this.inBytes += bytes;
+        }
+    }
+
 
     end() {
         const nc = this;
