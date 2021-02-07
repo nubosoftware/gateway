@@ -1,0 +1,11 @@
+.git
+.*
+Settings.json
+node_modules
+*.log
+*.DS_Store
+rpmbuild/RPMS/
+rpmbuild/SRPMS/
+debbuild/
+package-lock.json
+
