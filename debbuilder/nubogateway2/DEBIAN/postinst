@@ -1,0 +1,7 @@
+#!/bin/sh
+
+#remove "/" from tail of redisWrapperUrl
+sed 's/\(\"redisWrapperUrl\"[ \t]*:[ \t]\"[^\/]*\/\/[^\/]*\)[\/]*/\1/' -i /opt/nubogateway/Settings.json
+
+systemctl enable nubogateway
+systemctl restart nubogateway

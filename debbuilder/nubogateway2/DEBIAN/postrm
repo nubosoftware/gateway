@@ -1,0 +1,8 @@
+#!/bin/sh
+
+if [ "$1" = "remove" ]; then
+	systemctl disable nubogateway ||:
+fi
+
+#Restart after every install/update
+service rsyslog reload > /dev/null 2>&1 ||:

@@ -1,0 +1,9 @@
+Package: nubogateway
+Version: %Version%
+Architecture: amd64
+Depends: nodejs
+Recommends: rsyslog, nubocommon
+Conflicts: nubogateway
+Maintainer: NuboSoftware <alexander@nubosoftware.com>
+Section: main
+Description: Nubogateway service is public server that connect client with his platform

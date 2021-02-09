@@ -1,0 +1,18 @@
+[Unit]
+Description=Your Daemon
+After=network-online.target
+Wants=network-online.target systemd-networkd-wait-online.service
+
+StartLimitIntervalSec=500
+StartLimitBurst=5
+
+[Service]
+Restart=always
+RestartSec=5s
+KillSignal=SIGINT
+
+WorkingDirectory=/opt/nubogateway
+ExecStart=/usr/bin/node gateway.js
+
+[Install]
+WantedBy=multi-user.target

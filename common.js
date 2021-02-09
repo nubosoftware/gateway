@@ -43,6 +43,7 @@ class Common {
             const myFormat = printf(info => {
                 return `${info.timestamp} [${info.label}] ${info.level}: ${info.message}`;
             });
+            require('winston-syslog').Syslog;
             const intLogger = createLogger({
                 format: combine(
                     timestamp(),
@@ -62,6 +63,14 @@ class Common {
                         handleExceptions: true,
                         maxsize: 100 * 1024 * 1024, //100MB
                         maxFiles: 4,
+                    }),
+                    new transports.Syslog({
+                        app_name : "nubogateway",
+                        handleExceptions : true,
+                        localhost: null,
+                        protocol: "unix",
+                        path: "/dev/log",
+                        format: format.json()
                     })
                 ],
                 exceptionHandlers: [
