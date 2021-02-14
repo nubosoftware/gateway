@@ -36,6 +36,7 @@ async function main() {
     try {
         await Common.init();
         logger = Common.logger(__filename);
+        logger.info("Start gateway", {mtype: "important"});
 
         let reloadSettings = async() => {
             logger.info("Settings reloaded...");
@@ -72,7 +73,7 @@ async function main() {
 
         let playerRTPSocket = new PlayerRTPSocket(50005);
 
-        logger.info("end of gateway!");
+        logger.info("end of gateway!", {mtype: "important"});
 
     } catch (err) {
         if (logger) {

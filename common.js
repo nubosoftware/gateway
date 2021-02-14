@@ -91,49 +91,60 @@ class Common {
                 let moduleLogger = {
                     error: (text, err) => {
                         let msg = text;
+                        let res = {
+                            level: 'error',
+                            label: name
+                        }
                         if (err) {
-                            if (err.stack) {
-                                msg += " " + err.stack;
+                            if (typeof err === "object") {
+                                if (err instanceof Error) {
+                                    msg += " " + err.stack;
+                                } else {
+                                    res = Object.assign(obj, res);
+                                }
                             } else {
                                 msg += " " + err;
                             }
                         }
-                        intLogger.log({
-                            level: 'error',
-                            message: msg,
-                            label: name
-                        });
+                        res.message = msg;
+                        intLogger.log(res);
                     },
-                    info: (text) => {
-                        intLogger.log({
+                    info: (text, obj) => {
+                        let res = {
                             level: 'info',
                             message: text,
                             label: name
-                        });
+                        }
+                        if(typeof obj === "object") {
+                            res = Object.assign(obj, res);
+                        }
+                        intLogger.log(res);
                     },
-                    warn: (text) => {
-                        intLogger.log({
+                    warn: (text, obj) => {
+                        let res = {
                             level: 'warn',
                             message: text,
                             label: name
-                        });
+                        }
+                        if(typeof obj === "object") {
+                            res = Object.assign(obj, res);
+                        }
+                        intLogger.log(res);
                     },
-                    debug: (text) => {
-                        intLogger.log({
+                    debug: (text, obj) => {
+                        let res = {
                             level: 'debug',
                             message: text,
                             label: name
-                        });
-                    },
-                    log: (...args) => {
-                        let extra_meta = { label: name };
-                        let len = args.length;
-                        if (typeof args[len - 1] === 'object' && Object.prototype.toString.call(args[len - 2]) !== '[object RegExp]') {
-                            _.extend(args[len - 1], extra_meta);
-                        } else {
-                            args.push(extra_meta);
                         }
-                        intLogger.log.apply(Common.intLogger, args);
+                        if(typeof obj === "object") {
+                            res = Object.assign(obj, res);
+                        }
+                        intLogger.log(res);
+                    },
+                    log: (obj) => {
+                        if(!obj.label) obj.label = name;
+                        intLogger.log(obj);
                     }
                 };
 

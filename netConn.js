@@ -51,7 +51,11 @@ class NetConn extends EventEmitter {
     }
 
     log(msg) {
-        logger.info(`${this.TAG}: ${msg}`);
+        if(this.email) {
+            logger.info(`${this.TAG}: ${msg}`, {email: this.email});
+        } else {
+            logger.info(`${this.TAG}: ${msg}`);
+        }
     }
 
     setCompressStream(isCompressInput, isCompressOutput) {

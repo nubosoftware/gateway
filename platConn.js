@@ -44,7 +44,11 @@ class PlatConn extends NetConn {
             }
 
         } catch (err) {
-            logger.error(`${this.TAG}: Error`, err);
+            if(err.message === "Connection ended") {
+                logger.error(`${this.TAG}: Connection ended`);
+            } else {
+                logger.error(`${this.TAG}: Error`, err);
+            }
         }
 
         if (this.mChannelType == ChannelType.main) {
