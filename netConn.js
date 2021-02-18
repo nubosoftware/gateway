@@ -15,8 +15,8 @@ const COMPRESSION_BUFFER_SIZE = 64000;
 class NetConn extends EventEmitter {
 
     /**
-     * 
-     * @param {net.Socket} socket 
+     *
+     * @param {net.Socket} socket
      */
     constructor(socket) {
         super();
@@ -25,6 +25,11 @@ class NetConn extends EventEmitter {
         this.compressedOutput = false;
         this.compressedInput = false;
         this.writeQ = new SequentialTaskQueue();
+
+        const writeQErrorHandler = (err) => {
+            logger.error(`${nc.TAG}.writeQ error: ${err}`);
+        };
+        this.writeQ.on("error", writeQErrorHandler);
         const nc = this;
 
         const errorHandler = (err) => {
@@ -74,8 +79,8 @@ class NetConn extends EventEmitter {
 
 
     /**
-     * 
-     * @param {*} size 
+     *
+     * @param {*} size
      * @returns {Buffer} chunk
      */
     readChunk(size) {
@@ -179,9 +184,9 @@ class NetConn extends EventEmitter {
 
 
     /**
-     * 
-     * @param {Buffer} chunk 
-     * @param {*} writeUnCompressed 
+     *
+     * @param {Buffer} chunk
+     * @param {*} writeUnCompressed
      */
     async writeChunk(chunk, writeUnCompressed) {
         if (this.compressedOutput) {
@@ -228,12 +233,12 @@ class NetConn extends EventEmitter {
     }
 
     /**
-     * 
-     * @param {Buffer} srcBuff 
-     * @param {Buffer} targetBuff 
-     * @param {*} offsetSrc 
-     * @param {*} offsetTarget 
-     * @param {*} length 
+     *
+     * @param {Buffer} srcBuff
+     * @param {Buffer} targetBuff
+     * @param {*} offsetSrc
+     * @param {*} offsetTarget
+     * @param {*} length
      */
     copyBuff(srcBuff, targetBuff, offsetSrc, offsetTarget, length) {
         if (!length) {
@@ -253,29 +258,39 @@ class NetConn extends EventEmitter {
                 return;
             }
 
+            let haveListeners = true;
 
             const writeHandler = () => {
                 //logger.info(`${this.TAG}. writeHandler...`);
-                removeListeners();
-                resolve();
+                if (haveListeners) {
+                    removeListeners();
+                    resolve();
+                }
             };
 
             const closeHandler = () => {
-                removeListeners()
-                reject(new Error("Connection closed"))
+                if (haveListeners) {
+                    removeListeners()
+                    reject(new Error("writeChunkImp: Connection closed"))
+                }
             };
 
             const endHandler = () => {
-                removeListeners()
-                reject(new Error("Connection ended"))
+                if (haveListeners) {
+                    removeListeners()
+                    reject(new Error("writeChunkImp: Connection ended"))
+                }
             };
 
             const errorHandler = (err) => {
-                removeListeners()
-                reject(err)
+                if (haveListeners) {
+                    removeListeners()
+                    reject(err)
+                }
             };
 
             const removeListeners = () => {
+                haveListeners = false;
                 nc.socket.removeListener("close", closeHandler);
                 nc.socket.removeListener("error", errorHandler);
                 nc.socket.removeListener("end", endHandler);
@@ -463,8 +478,8 @@ class NetConn extends EventEmitter {
     }
 
     /**
-     * 
-     * @param {string} str 
+     *
+     * @param {string} str
      */
     async writeString(str) {
             if (!str) {
@@ -481,8 +496,8 @@ class NetConn extends EventEmitter {
             await this.writeChunk(strbuf);
         }
         /**
-         * 
-         * @param {number} f 
+         *
+         * @param {number} f
          */
     async writeFloat(f) {
         const b = Buffer.alloc(4);
@@ -491,8 +506,8 @@ class NetConn extends EventEmitter {
     }
 
     /**
-     * 
-     * @param {bigint} num 
+     *
+     * @param {bigint} num
      */
     async writeLong(num) {
         const b = Buffer.alloc(8);

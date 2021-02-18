@@ -54,8 +54,8 @@ let playerConnectionByPlatformUser = {}
 let playerConnectionByRTPUploadAddr = {};
 class PlayerConn extends NetConn {
     /**
-     * 
-     * @param {net.Socket} socket 
+     *
+     * @param {net.Socket} socket
      */
     constructor(socket) {
         super(socket);
@@ -242,12 +242,16 @@ class PlayerConn extends NetConn {
         const pc = this.mSession.mPlatformController;
         if (pc != null) {
             pc.writeQ.push(async() => {
-                await pc.writeInt(controllerBytesCount);
-                await pc.writeInt(cmdCode);
-                await pc.writeString(this.mSessionId);
-                await pc.writeInt(this.mUserId);
-                if (data) {
-                    await pc.writeChunk(data);
+                try {
+                    await pc.writeInt(controllerBytesCount);
+                    await pc.writeInt(cmdCode);
+                    await pc.writeString(this.mSessionId);
+                    await pc.writeInt(this.mUserId);
+                    if (data) {
+                        await pc.writeChunk(data);
+                    }
+                } catch(err) {
+                    this.log(`sendCmdToPlatformController. writeQ error: ${err}`);
                 }
             });
 
@@ -280,10 +284,14 @@ class PlayerConn extends NetConn {
         const pc = this.mSession.getPlatformConnection(processId, this.mChannelType, this.mChannelIdx);
         if (pc) {
             pc.writeQ.push(async() => {
-                await pc.writeInt(cmdCode);
-                await pc.writeString(this.mSessionId);
-                if (data != null) {
-                    await pc.writeChunk(data);
+                try {
+                    await pc.writeInt(cmdCode);
+                    await pc.writeString(this.mSessionId);
+                    if (data != null) {
+                        await pc.writeChunk(data);
+                    }
+                } catch(err) {
+                    this.log(`sendCmdToApplication. writeQ error: ${err}`);
                 }
             });
         } else {
@@ -527,8 +535,8 @@ class PlayerConn extends NetConn {
     }
 
     /**
-     * 
-     * @param {Session} session 
+     *
+     * @param {Session} session
      */
     async handlePlayerLoginOnPlatform(session) {
         this.mUserId = session.mUserId;
@@ -560,60 +568,64 @@ class PlayerConn extends NetConn {
         session.associatePlayerWithPlatformConnectionsAndSyncApps(this);
 
 
-        await session.mPlatformController.writeQ.push(async() => {
-            this.log("Send login to mPlatformController..");
-            if (this.mNumberOfCameras > 0 && this.mNumberOfCameras < MAX_NUMBER_OF_CAMERAS) {
-                await session.mPlatformController.writeInt(PlatformCtrlCmdSize.userLoginWithService);
-            } else {
-                await session.mPlatformController.writeInt(PlatformCtrlCmdSize.userLoginWithServiceConstCamera);
-            }
-
-            await session.mPlatformController.writeInt(PlatformCtrlCmd.userLogin);
-            await session.mPlatformController.writeString(this.mSessionId);
-            await session.mPlatformController.writeInt(this.mUserId);
-            // EB@NUBO: Whenever a user logs in, the width, height,
-            // density and scale are sent
-            await session.mPlatformController.writeInt(this.mWidth);
-            await session.mPlatformController.writeInt(this.mHeight);
-            await session.mPlatformController.writeInt(this.mDensityDpi);
-            await session.mPlatformController.writeFloat(this.mXDpi);
-            await session.mPlatformController.writeFloat(this.mYDpi);
-            await session.mPlatformController.writeFloat(this.mScaledDensity);
-            await session.mPlatformController.writeInt(this.mRotation);
-            await session.mPlatformController.writeInt(this.mNavBarHeightPortrait);
-            await session.mPlatformController.writeInt(this.mNavBarHeightLandscape);
-            await session.mPlatformController.writeInt(this.mNavBarWidth);
-            await session.mPlatformController.writeInt(this.mRomClientType);
-            await session.mPlatformController.writeInt(this.mRomSdkVersion);
-            await session.mPlatformController.writeString(this.mRomBuildVersion);
-            await session.mPlatformController.writeString(this.mNuboClientVersion);
-            await session.mPlatformController.writeString(this.mNuboProtocolVersion)
-            await session.mPlatformController.writeInt(this.mNuboVersionCode);
-            await session.mPlatformController.writeInt(this.mAllocatedCacheSize);
-            await session.mPlatformController.writeInt(this.mPendingIntentType);
-            if (this.mIsWebClient || this.mIsAndroidClient) {
-                await session.mPlatformController.writeString(this.mDataIntent);
-            }
-            // Handle camera info
-            if (this.mNumberOfCameras != -1) {
-                await session.mPlatformController.writeInt(this.mNumberOfCameras);
+        session.mPlatformController.writeQ.push(async() => {
+            try {
+                this.log("Send login to mPlatformController..");
                 if (this.mNumberOfCameras > 0 && this.mNumberOfCameras < MAX_NUMBER_OF_CAMERAS) {
-                    for (let i = 0; i < this.mNumberOfCameras; ++i) {
-                        await session.mPlatformController.writeInt(this.mDeviceCamerasInfo[i].facing);
-                        await session.mPlatformController.writeInt(this.mDeviceCamerasInfo[i].orientation);
-                        await session.mPlatformController.writeString(this.mDeviceCamerasInfo[i].parameters);
+                    await session.mPlatformController.writeInt(PlatformCtrlCmdSize.userLoginWithService);
+                } else {
+                    await session.mPlatformController.writeInt(PlatformCtrlCmdSize.userLoginWithServiceConstCamera);
+                }
+
+                await session.mPlatformController.writeInt(PlatformCtrlCmd.userLogin);
+                await session.mPlatformController.writeString(this.mSessionId);
+                await session.mPlatformController.writeInt(this.mUserId);
+                // EB@NUBO: Whenever a user logs in, the width, height,
+                // density and scale are sent
+                await session.mPlatformController.writeInt(this.mWidth);
+                await session.mPlatformController.writeInt(this.mHeight);
+                await session.mPlatformController.writeInt(this.mDensityDpi);
+                await session.mPlatformController.writeFloat(this.mXDpi);
+                await session.mPlatformController.writeFloat(this.mYDpi);
+                await session.mPlatformController.writeFloat(this.mScaledDensity);
+                await session.mPlatformController.writeInt(this.mRotation);
+                await session.mPlatformController.writeInt(this.mNavBarHeightPortrait);
+                await session.mPlatformController.writeInt(this.mNavBarHeightLandscape);
+                await session.mPlatformController.writeInt(this.mNavBarWidth);
+                await session.mPlatformController.writeInt(this.mRomClientType);
+                await session.mPlatformController.writeInt(this.mRomSdkVersion);
+                await session.mPlatformController.writeString(this.mRomBuildVersion);
+                await session.mPlatformController.writeString(this.mNuboClientVersion);
+                await session.mPlatformController.writeString(this.mNuboProtocolVersion)
+                await session.mPlatformController.writeInt(this.mNuboVersionCode);
+                await session.mPlatformController.writeInt(this.mAllocatedCacheSize);
+                await session.mPlatformController.writeInt(this.mPendingIntentType);
+                if (this.mIsWebClient || this.mIsAndroidClient) {
+                    await session.mPlatformController.writeString(this.mDataIntent);
+                }
+                // Handle camera info
+                if (this.mNumberOfCameras != -1) {
+                    await session.mPlatformController.writeInt(this.mNumberOfCameras);
+                    if (this.mNumberOfCameras > 0 && this.mNumberOfCameras < MAX_NUMBER_OF_CAMERAS) {
+                        for (let i = 0; i < this.mNumberOfCameras; ++i) {
+                            await session.mPlatformController.writeInt(this.mDeviceCamerasInfo[i].facing);
+                            await session.mPlatformController.writeInt(this.mDeviceCamerasInfo[i].orientation);
+                            await session.mPlatformController.writeString(this.mDeviceCamerasInfo[i].parameters);
+                        }
                     }
                 }
-            }
-            // handle network stats
-            if (this.mIsIOSClient || this.mIsAndroidClient) {
-                await session.mPlatformController.writeInt(this.mNetworkConnectionQuality);
-            }
-            // ////////
+                // handle network stats
+                if (this.mIsIOSClient || this.mIsAndroidClient) {
+                    await session.mPlatformController.writeInt(this.mNetworkConnectionQuality);
+                }
+                // ////////
 
 
-            await session.mPlatformController.writeInt(this.mNuboFlags);
-            await session.mPlatformController.writeString(this.mHideAppPackageName);
+                await session.mPlatformController.writeInt(this.mNuboFlags);
+                await session.mPlatformController.writeString(this.mHideAppPackageName);
+            } catch(err) {
+                this.log(`handlePlayerLoginOnPlatform. writeQ error: ${err}`);
+            }
         });
 
 
@@ -667,18 +679,18 @@ class PlayerConn extends NetConn {
     }
 
     /**
-     * 
+     *
      * @param {string} token
-     * @returns {PlayerConn} 
+     * @returns {PlayerConn}
      */
     static getPlayerConnectionByToken(token) {
         return playerConnectionsByTokens[token];
     }
 
     /**
-     * 
+     *
      * @param {string} jwtToken
-     * @returns {boolean} 
+     * @returns {boolean}
      */
     validateJwtToken(jwtToken) {
         const secret = Buffer.from(this.mSessionId, "hex");
@@ -710,9 +722,9 @@ class PlayerConn extends NetConn {
     }
 
     /**
-     * 
-     * @param {string} address 
-     * @param {number} port 
+     *
+     * @param {string} address
+     * @param {number} port
      * @returns {PlayerConn}
      */
     static getPlayerConnctionByRTPUploadAddr(address, port) {
@@ -721,8 +733,8 @@ class PlayerConn extends NetConn {
     }
 
     /**
-     * 
-     * @param {number} platformUserKey 
+     *
+     * @param {number} platformUserKey
      * @returns {PlayerConn}
      */
     static getPlayerConnByPlatUser(platformUserKey) {
@@ -822,12 +834,12 @@ class PlayerConn extends NetConn {
     }
 
     /**
-     * 
-     * @param {boolean} playbackStarted 
-     * @param {number} playbackStreamType 
-     * @param {boolean} recordStarted 
-     * @param {number} recordInputSource 
-     * @param {boolean} speakerPhoneOn 
+     *
+     * @param {boolean} playbackStarted
+     * @param {number} playbackStreamType
+     * @param {boolean} recordStarted
+     * @param {number} recordInputSource
+     * @param {boolean} speakerPhoneOn
      */
     async sendAudioParams(playbackStarted, playbackStreamType, recordStarted,
         recordInputSource, speakerPhoneOn) {
@@ -866,8 +878,8 @@ class PlayerConn extends NetConn {
     }
 
     /**
-     * 
-     * @param {RTPPacket} rtpPacket 
+     *
+     * @param {RTPPacket} rtpPacket
      */
     sendMediaPacket(rtpPacket, rinfo) {
         if (rtpPacket.payloadType == 96) { // audio packet
@@ -926,12 +938,12 @@ class PlayerConn extends NetConn {
 
 
     /**
-     * 
-     * @param {Buffer} data 
-     * @param {*} bytesCount 
-     * @param {*} processId 
-     * @param {*} cmdcode 
-     * @param {*} wndId 
+     *
+     * @param {Buffer} data
+     * @param {*} bytesCount
+     * @param {*} processId
+     * @param {*} cmdcode
+     * @param {*} wndId
      */
     copyCmdHeaderToBuffer(data, bytesCount, processId, cmdcode, wndId) {
         data.writeInt32BE(bytesCount, 0);
@@ -941,12 +953,12 @@ class PlayerConn extends NetConn {
     }
 
     /**
-     * 
-     * @param {*} bytesCount 
-     * @param {*} processId 
-     * @param {*} cmdcode 
-     * @param {*} wndId 
-     * @param {Buffer} args 
+     *
+     * @param {*} bytesCount
+     * @param {*} processId
+     * @param {*} cmdcode
+     * @param {*} wndId
+     * @param {Buffer} args
      */
     async writeToClient(bytesCount, processId, cmdcode, wndId, buff, flushBuffer) {
 
@@ -972,19 +984,23 @@ class PlayerConn extends NetConn {
             writeUnCompressed = true;
         }
         //this.log(`Write chunk. cmdcode: ${cmdcode}, size: ${bytesCount}, writeUnCompressed: ${writeUnCompressed}`);
-        await this.writeQ.push(async() => {
-            await this.writeChunk(data, writeUnCompressed);
-            if (flushBuffer) {
-                await this.compressAndSend();
+        this.writeQ.push(async() => {
+            try {
+                await this.writeChunk(data, writeUnCompressed);
+                if (flushBuffer) {
+                    await this.compressAndSend();
+                }
+            } catch(err) {
+                this.log(`writeToClient. writeQ error: ${err}`);
             }
         });
     }
 
     /**
-     * 
-     * @param {*} bytesCount 
-     * @param {*} cmdcode 
-     * @param {Buffer} buf 
+     *
+     * @param {*} bytesCount
+     * @param {*} cmdcode
+     * @param {Buffer} buf
      */
     async writeToClientOld(bytesCount, cmdcode, buff, flushBuffer) {
         const data = Buffer.alloc(bytesCount);
@@ -993,10 +1009,14 @@ class PlayerConn extends NetConn {
         if (buff) {
             buff.copy(data, offset);
         }
-        await this.writeQ.push(async() => {
-            await this.writeChunk(data, false);
-            if (flushBuffer) {
-                await this.compressAndSend();
+        this.writeQ.push(async() => {
+            try {
+                await this.writeChunk(data, false);
+                if (flushBuffer) {
+                    await this.compressAndSend();
+                }
+            } catch(err) {
+                this.log(`writeToClientOld. writeQ error: ${err}`);
             }
         });
     }

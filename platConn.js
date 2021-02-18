@@ -20,8 +20,8 @@ const CMD_HEADER_SIZE = 13;
 
 class PlatConn extends NetConn {
     /**
-     * 
-     * @param {net.Socket} socket 
+     *
+     * @param {net.Socket} socket
      */
     constructor(socket) {
         super(socket);
@@ -93,10 +93,14 @@ class PlatConn extends NetConn {
 
 
         let pc = this;
-        await this.writeQ.push(async() => {
+        this.writeQ.push(async() => {
             //pc.log(`Write ack to platfrom. mSessionId: ${this.mSessionId}`);
-            await this.writeInt(PlayerCmd.platformProcessConnected);
-            await this.writeString(this.mSessionId);
+            try {
+                await this.writeInt(PlayerCmd.platformProcessConnected);
+                await this.writeString(this.mSessionId);
+            } catch(err) {
+                this.log(`addPlatformConnection. writeQ error: ${err}`);
+            }
         });
 
 
@@ -162,9 +166,13 @@ class PlatConn extends NetConn {
         if (this.mSession) {
             //this.log("sendInitProcessFPS..");
             this.writeQ.push(async() => {
-                await this.writeInt(PlayerCmd.initProcessFPS);
-                await this.writeString(this.mSessionId);
-                await this.writeInt(PlayerCmd.netQ);
+                try {
+                    await this.writeInt(PlayerCmd.initProcessFPS);
+                    await this.writeString(this.mSessionId);
+                    await this.writeInt(PlayerCmd.netQ);
+                } catch(err) {
+                    this.log(`sendInitProcessFPS. writeQ error: ${err}`);
+                }
             });
         } else {
             this.log("sendInitProcessFPS.. this.mSession is null!!");
@@ -175,8 +183,12 @@ class PlatConn extends NetConn {
         if (this.mSession) {
             //this.log("sendSync..");
             this.writeQ.push(async() => {
-                await this.writeInt(PlayerCmd.sync);
-                await this.writeString(this.mSessionId);
+                try {
+                    await this.writeInt(PlayerCmd.sync);
+                    await this.writeString(this.mSessionId);
+                } catch(err) {
+                    this.log(`sendSync. writeQ error: ${err}`);
+                }
             });
         }
     }
@@ -185,8 +197,12 @@ class PlatConn extends NetConn {
         if (this.mSession) {
             //this.log("killUserApps..");
             this.writeQ.push(async() => {
-                await this.writeInt(PlayerCmd.killUserApps);
-                await this.writeString(this.mSessionId);
+                try {
+                    await this.writeInt(PlayerCmd.killUserApps);
+                    await this.writeString(this.mSessionId);
+                } catch(err) {
+                    this.log(`killUserApps. writeQ error: ${err}`);
+                }
             });
         }
     }

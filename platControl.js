@@ -18,8 +18,8 @@ let platformControllers = [];
 
 class PlatControl extends NetConn {
     /**
-     * 
-     * @param {net.Socket} socket 
+     *
+     * @param {net.Socket} socket
      */
     constructor(socket) {
         super(socket);
@@ -102,10 +102,14 @@ class PlatControl extends NetConn {
             case PlatformCtrlCmd.roundTripData:
                 {
                     let millis = await this.readLong();
-                    await this.writeQ.push(async() => {
-                        await this.writeInt(PlatformCtrlCmdSize.roundTripDataAck);
-                        await this.writeInt(PlatformCtrlCmd.roundTripDataAck);
-                        await this.writeLong(millis);
+                    this.writeQ.push(async() => {
+                        try {
+                            await this.writeInt(PlatformCtrlCmdSize.roundTripDataAck);
+                            await this.writeInt(PlatformCtrlCmd.roundTripDataAck);
+                            await this.writeLong(millis);
+                        } catch(err) {
+                            this.log(`roundTripData. writeQ error: ${err}`);
+                        }
                     });
                     //await this.flush();
                 }
@@ -150,16 +154,16 @@ class PlatControl extends NetConn {
 
 
     /**
-     * 
-     * @param {PlatConn} platConn 
+     *
+     * @param {PlatConn} platConn
      */
     addPlatformConnection(platConn) {
         this.mPlatformConnections[platConn.getHash()] = platConn;
     }
 
     /**
-     * 
-     * @param {PlatConn} platConn 
+     *
+     * @param {PlatConn} platConn
      */
     removePlatformConnection(platConn) {
         if (this.mPlatformConnections[platConn.getHash()] == platConn) {
