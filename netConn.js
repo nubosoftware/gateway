@@ -24,6 +24,7 @@ class NetConn extends EventEmitter {
         this.TAG = `${this.__proto__.constructor.name}_${socket.remoteAddress}:${socket.remotePort}`;
         this.compressedOutput = false;
         this.compressedInput = false;
+        socket.setNoDelay(true);
         this.writeQ = new SequentialTaskQueue();
 
         const writeQErrorHandler = (err) => {

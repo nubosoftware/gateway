@@ -11,8 +11,8 @@ let instance = null;
 
 class PlatformRTPService extends EventEmitter {
     /**
-     * 
-     * @param {number} port 
+     *
+     * @param {number} port
      */
     constructor(port) {
         super();
@@ -54,10 +54,10 @@ class PlatformRTPService extends EventEmitter {
     }
 
     /**
-     * 
-     * @param {Buffer} buff 
-     * @param {String} address 
-     * @param {number} port 
+     *
+     * @param {Buffer} buff
+     * @param {String} address
+     * @param {number} port
      */
     sendPacket(buff, address, port) {
         try {
@@ -72,9 +72,9 @@ class PlatformRTPService extends EventEmitter {
     }
 
     /**
-     * 
-     * @param {Buffer} packet 
-     * @param {*} rinfo 
+     *
+     * @param {Buffer} packet
+     * @param {*} rinfo
      */
     onPacket(buf, rinfo) {
         if (buf.length >= RTP_HEADER_LENGTH) {

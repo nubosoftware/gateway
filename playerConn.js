@@ -743,7 +743,7 @@ class PlayerConn extends NetConn {
 
     async handleAudioInPacket() {
         let data = await this.readByteArr();
-        this.log(`handleAudioInPacket. size: ${data.length}`);
+        //this.log(`handleAudioInPacket. size: ${data.length}`);
         //this.rtpAudioUpInetAddress
         if (!this.audioInPacketNum) {
             this.audioInPacketNum = 1;
@@ -755,7 +755,9 @@ class PlayerConn extends NetConn {
         if (!this.audioInUDPSocket) {
             this.audioInUDPSocket = dgram.createSocket('udp4');
         }
-
+        // DEBUG ONLY
+        /*this.log(`Sending audio in packet to: 127.0.0.1:30057`);
+        this.audioInUDPSocket.send(rtpPacket.srcBuffer, 30057, "127.0.0.1");*/
         this.audioInUDPSocket.send(rtpPacket.srcBuffer, this.rtpAudioUpPort, this.rtpAudioUpInetAddress);
 
 
@@ -874,6 +876,7 @@ class PlayerConn extends NetConn {
             let buf = Buffer.allocUnsafe(1);
             buf.writeUInt8(isStart ? 1 : 2);
             platformRTPService.sendPacket(buf, this.mSession.sessionParams.nuboglListenHost, this.mSession.sessionParams.nuboglListenPort);
+            this.log(`sendPacket to nubo gl: ${isStart ? 1 : 2}`);
         }
     }
 
@@ -916,16 +919,18 @@ class PlayerConn extends NetConn {
                 //this.log(`Send opengl packrt with SN ${rtpPacket.sequenceNumber}`);
                 // if this is opengl channel - send the video
                 if (!this.mSession.sessionParams.nuboglListenHost) {
+                    this.log(`nuboglListenHost is not set. Change it to: ${rinfo.address}`);
                     this.mSession.sessionParams.nuboglListenHost = rinfo.address;
-                    this.sendNuboGLStartStop(true);
+                    //this.sendNuboGLStartStop(true);
                 }
                 let buf = Buffer.allocUnsafe(rtpPacket.srcBuffer.length + 4);
                 buf.writeInt32BE(rtpPacket.srcBuffer.length);
                 rtpPacket.srcBuffer.copy(buf, 4);
                 const bytesCount = CMD_HEADER_SIZE + buf.length;
-                //this.log("Sending open gl packet to channel");
+
                 this.writeToClient(bytesCount, -1,
                     DrawCmd.openGLVideoPacket, -1, buf, true);
+                //this.log("Sending open gl packet to channel");
 
             } else if (this.mSession != null && this.mSession.mOpenGLChannelPlayerConnection != null && this.mSession.mOpenGLChannelPlayerConnection != this) {
                 this.mSession.mOpenGLChannelPlayerConnection.sendMediaPacket(rtpPacket, rinfo);
