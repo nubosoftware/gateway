@@ -130,7 +130,7 @@ class PlayerConn extends NetConn {
         }
 
         if (!isValidSessionId && iPlayerCmd != PlayerCmd.roundTripData) {
-            logger.info(`${this.TAG}: Invalid sessionID: ${sessionId}`);
+            logger.info(`${this.TAG}: Invalid sessionID: ${sessionId}, iPlayerCmd: ${iPlayerCmd}`);
             this.mStopThread = true;
             return;
         }

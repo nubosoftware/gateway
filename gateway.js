@@ -90,8 +90,8 @@ async function registerGateway(service, isSsl) {
     const data = Common.settings;
     let url = "/redisGateway/registerGateway?baseIndex=" + data.base_index + "&offset=" + registeredGWs;
     url = url + "&internal_ip=" + data.internal_ip;
-    url = url + "&controller_port=" + data.platformControlPort;
-    url = url + "&apps_port=" + data.platformPort;
+    url = url + "&controller_port=" + (data.platformControlPort | 8891 );
+    url = url + "&apps_port=" + (data.platformPort | 8890 );
     url = url + "&external_ip=" + data.external_ip;
     url = url + "&player_port=" + service.port;
     url = url + "&ssl=" + (isSsl ? "true" : "false");

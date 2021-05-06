@@ -4,7 +4,26 @@ const fs = require('fs');
 const { createLogger, format, transports } = require('winston');
 const { combine, timestamp, label, printf } = format;
 const path = require('path');
+const _ = require('underscore');
 
+const defaultSettings = {
+    "compressStream": "true",
+    "trackURL": "https://nubosoftware.com/track/trackAPI",
+    "platformControlPort": "8891",
+    "platformPort": "8890",
+    "playerPort": "0",
+    "sslPlayerPort": "7443",
+    "base_index": "1",
+    "redisWrapperUrl": "http://127.0.0.1:8080",
+    "backendAuthUser": "none",
+    "backendAuthPassword": "none",
+    "platformVersionCode": 290,
+    "tlsOptions": {
+        "keyfile": "../cert/server.key",
+        "certfile": "../cert/server.cert",
+        "cafile": "../cert/root.crt"
+    }
+};
 
 class Common {
     constructor() {
@@ -13,7 +32,8 @@ class Common {
         let settingsReloadCB = null;
         let loadSettings = () => {
             delete require.cache[settingsFile];
-            common.settings = require(settingsFile);
+            common.settings =  _.extend({},defaultSettings,require(settingsFile));
+            console.log("Settings: "+JSON.stringify(common.settings,null,2));
             let saveCB = settingsReloadCB;
             common.settingsReload = new Promise((resolve, reject) => {
                 settingsReloadCB = {
