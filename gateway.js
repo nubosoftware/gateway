@@ -57,13 +57,13 @@ async function main() {
             await playerService.listen();
             await registerGateway(playerService, false);
         } else {
-            let tlsOptions = Common.settings.tlsOptions;
-            /*{
+            let tlsOptions = //Common.settings.tlsOptions;
+            {
                 SNICallback: (servername, cb) => {
                     logger.info(`SNICallback. servername: ${servername}`)
                     cb(null, secureCtx);
                 }
-            };*/
+            };
             let playerService = new NetService(Common.settings.sslPlayerPort, PlayerConn, tlsOptions);
             await playerService.listen();
             await registerGateway(playerService, true);
