@@ -46,10 +46,10 @@ async function main() {
         Common.settingsReload.then(reloadSettings);
         await loadSecureContext();
 
-        let platformControlService = new NetService(Common.settings.platformControlPort | 8891, PlatControl);
+        let platformControlService = new NetService((Common.settings.platformControlPort ? Common.settings.platformControlPort : 8891), PlatControl);
         await platformControlService.listen();
 
-        let platformConnService = new NetService(Common.settings.platformPort | 8890, PlatConn);
+        let platformConnService = new NetService((Common.settings.platformPort ? Common.settings.platformPort : 8890), PlatConn);
         await platformConnService.listen();
 
         if (Common.settings.playerPort && Common.settings.playerPort > 0) {
@@ -88,13 +88,25 @@ let registeredGWs = 0;
 
 async function registerGateway(service, isSsl) {
     const data = Common.settings;
+
+    let external_ip,port,ssl;
+    if (data.external_url && data.external_url != "") {
+        const exURL = new URL(data.external_url);
+        external_ip = exURL.hostname;
+        port = exURL.port;
+        ssl = (exURL.protocol == "ssl:" ? "true" : "false");
+    } else {
+        external_ip = data.external_ip;
+        port = service.port;
+        ssl = (isSsl ? "true" : "false");
+    }
     let url = "/redisGateway/registerGateway?baseIndex=" + data.base_index + "&offset=" + registeredGWs;
     url = url + "&internal_ip=" + data.internal_ip;
-    url = url + "&controller_port=" + (data.platformControlPort | 8891 );
-    url = url + "&apps_port=" + (data.platformPort | 8890 );
-    url = url + "&external_ip=" + data.external_ip;
-    url = url + "&player_port=" + service.port;
-    url = url + "&ssl=" + (isSsl ? "true" : "false");
+    url = url + "&controller_port=" + (data.platformControlPort ? data.platformControlPort : 8891 );
+    url = url + "&apps_port=" + (data.platformPort ? data.platformPort : 8890 );
+    url = url + "&external_ip=" + external_ip;
+    url = url + "&player_port=" + port;
+    url = url + "&ssl=" + ssl;
 
     let response = await mgmtCall.get({
         url,
