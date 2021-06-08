@@ -74,7 +74,14 @@ class PlatConn extends NetConn {
         const session = getSession(this.mSessionId);
         if (!session.validSession) {
             let valid = await session.validateSession(2);
-            //this.log(`validateSession result: ${valid}`);
+            //this.log(`validateSession result: ${valid}. mPlatformController: ${session.mPlatformController}`);
+        } else {
+            let changed = await session.associatePlatConnToPlatformController(this);
+            if (changed) {
+                // if value changed - we will re-validate  session
+                this.log(`addPlatformConnection. platform controller changed. re-validate session`);
+                await session.validateSession(2);
+            }
         }
         if (!session || !session.validSession) {
             this.log(`addPlatformConnection. Faild to validate session. Aborting connection. mSessionId: ${this.mSessionId}`);

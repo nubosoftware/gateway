@@ -17,8 +17,8 @@ const OK = 0;
 
 class Session extends EventEmitter {
     /**
-     * 
-     * @param {String} sessionID 
+     *
+     * @param {String} sessionID
      */
     constructor(sessionID) {
         super();
@@ -27,20 +27,55 @@ class Session extends EventEmitter {
         this.mPlayerChannels = {};
         this.mPlatConnections = [];
         sessions[sessionID] = this;
+        this.mValidateStartTime = null;
     }
 
     log(msg) {
         logger.info(`${this.TAG}: ${msg}`);
     }
 
-    async validateSession(suspend, doNotRefreshData) {
+    sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
 
-        let response = await mgmtCall.get({
-            url: "/redisGateway/validateUpdSession?session=" + this.sessionID + "&suspend=" + suspend,
-        });
+    async validateSession(suspend, doNotRefreshData) {
+        //this.log(`validateSession. session: ${this.sessionID}, suspend: ${suspend}, doNotRefreshData: ${doNotRefreshData}`);
+        // check if we can limit execution of mutiple requests
+        if (suspend == 2 && !doNotRefreshData) {
+            let startTime = new Date().getTime();
+            if (this.mValidateStartTime &&  (startTime - this.mValidateStartTime) < 2000) {
+                // validation is already running - wait for it
+                //this.log(`validateSession. Wait for mutiple execution for session: ${this.sessionID}`);
+                let cnt = 0;
+                while(cnt < 20) {
+                    await this.sleep(100);
+                    cnt++;
+                    if (!this.mValidateStartTime) {
+                        //this.log(`validateSession. Finish waiting for session ${this.sessionID}, validSession: ${this.validSession}`);
+                        return this.validSession;
+                    }
+                }
+
+            }
+            this.mValidateStartTime = startTime;
+        }
+        let response;
+        try {
+            response = await mgmtCall.get({
+                url: "/redisGateway/validateUpdSession?session=" + this.sessionID + "&suspend=" + suspend,
+            });
+        } catch(err) {
+            this.log(`validateSession. redisGateway error: ${err}`);
+            this.validSession = false;
+            this.mValidateStartTime = null;
+            return false;
+        }
         if (doNotRefreshData) {
             // we use this only to change suspend values
             return false;
+        }
+        if (suspend == 2) {
+            this.mValidateStartTime = null;
         }
         //this.log("validateSession. response: " + JSON.stringify(response.data, null, 2));
         if (response.data.status == OK) {
@@ -62,8 +97,8 @@ class Session extends EventEmitter {
 
 
     /**
-     * 
-     * @param {PlayerConn} playerConnection 
+     *
+     * @param {PlayerConn} playerConnection
      */
     addPlayerConnection(playerConnection) {
         if (playerConnection.mChannelType == 0) {
@@ -80,8 +115,8 @@ class Session extends EventEmitter {
     }
 
     /**
-     * 
-     * @param {PlayerConn} playerConnection 
+     *
+     * @param {PlayerConn} playerConnection
      */
     removePlayerConnection(playerConnection) {
         //this.log(`removePlayerConnection: mChannelType: ${playerConnection.mChannelType}`);
@@ -108,8 +143,8 @@ class Session extends EventEmitter {
     }
 
     /**
-     * 
-     * @param {PlatConn} platConn 
+     *
+     * @param {PlatConn} platConn
      */
     addPlatformConnection(platConn) {
         const hash = this.getConnectionHash(platConn.mProcessId, platConn.mChannelType, platConn.mChannelIdx);
@@ -118,8 +153,8 @@ class Session extends EventEmitter {
     }
 
     /**
-     * 
-     * @param {PlatConn} platConn 
+     *
+     * @param {PlatConn} platConn
      */
     removePlatformConnection(platConn) {
         const hash = this.getConnectionHash(platConn.mProcessId, platConn.mChannelType, platConn.mChannelIdx);
@@ -131,7 +166,7 @@ class Session extends EventEmitter {
     }
 
     /**
-     * 
+     *
      * @param {PlatControl} platControl
      */
     removePlatformController(platControl) {
@@ -151,10 +186,10 @@ class Session extends EventEmitter {
     }
 
     /**
-     * 
-     * @param {number} processID 
-     * @param {number} channelType 
-     * @param {number} channelIdx 
+     *
+     * @param {number} processID
+     * @param {number} channelType
+     * @param {number} channelIdx
      * @returns {PlatConn}
      */
     getPlatformConnection(processID, channelType, channelIdx) {
@@ -163,12 +198,28 @@ class Session extends EventEmitter {
     }
 
     /**
-     * 
-     * @param {PlayerConn} playerConnection 
+     *
+     * @param {PlayerConn} playerConnection
      */
     async associatePlayerToPlatformController(playerConnection) {
         let platControl = await PlatControl.waitForPlatformControl(playerConnection.mPlatformId);
         this.mPlatformController = platControl;
+    }
+
+    /**
+     *
+     * @param {PlayerConn} playerConnection
+     */
+    async associatePlatConnToPlatformController(platConnection) {
+        let platControl = await PlatControl.waitForPlatformControl(platConnection.mPlatformId);
+        if (this.mPlatformController != platControl) {
+            this.mPlatformController = platControl;
+            // return true so caller know we changed mPlatformController
+            return true;
+        } else {
+            // return false so caller know we didn't change mPlatformController
+            return false;
+        }
     }
 
     async sendSyncToPlatformApps() {
@@ -188,8 +239,8 @@ class Session extends EventEmitter {
     }
 
     /**
-     * 
-     * @param {PlayerConn} playerConnection 
+     *
+     * @param {PlayerConn} playerConnection
      */
     associatePlayerWithPlatformConnectionsAndSyncApps(playerConnection) {
         const keys = Object.keys(this.mPlatConnections);
@@ -206,8 +257,8 @@ class Session extends EventEmitter {
 }
 
 /**
- * 
- * @param {String} sessionID 
+ *
+ * @param {String} sessionID
  * @returns {Session}
  */
 function getSession(sessionID) {
