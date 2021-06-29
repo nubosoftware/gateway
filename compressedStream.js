@@ -7,9 +7,9 @@ const zlib = require('zlib');
 
 class CompressedStream extends Readable {
     /**
-     * 
+     *
      * @param {Readable} readable  - Source readble
-     * @param {*} options 
+     * @param {*} options
      */
     constructor(readable, options) {
         super(options);
@@ -42,7 +42,7 @@ class CompressedStream extends Readable {
             logger.error(`errorHandler()`, err);
             //removeListeners();
             cs._err = err;
-            cs.emit('error', err);
+            //cs.emit('error', err);
         };
 
         const removeListeners = () => {

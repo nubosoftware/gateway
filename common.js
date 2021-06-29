@@ -73,27 +73,27 @@ class Common {
                     new(transports.Console)({
                         name: 'console',
                         json: true,
-                        handleExceptions: true,
+                        handleExceptions: false,
                         timestamp: true,
                         colorize: true
                     }),
                     new transports.File({
                         name: 'file',
                         filename: __dirname + '/log/' + loggerName,
-                        handleExceptions: true,
+                        handleExceptions: false,
                         maxsize: 100 * 1024 * 1024, //100MB
                         maxFiles: 4,
                     }),
                     new transports.Syslog({
                         app_name : "nubogateway",
-                        handleExceptions : true,
+                        handleExceptions : false,
                         localhost: null,
                         protocol: "unix",
                         path: "/dev/log",
                         format: format.json()
                     })
                 ],
-                exceptionHandlers: [
+                /*exceptionHandlers: [
                     new(transports.Console)({
                         json: false,
                         timestamp: true
@@ -103,7 +103,7 @@ class Common {
                         json: false
                     })
                 ],
-                exitOnError: false
+                exitOnError: false*/
             });
 
             common.logger = (fileName) => {

@@ -10,6 +10,7 @@ const { PlatformRTPService } = require('./platformRTPService');
 const { PlayerRTPSocket } = require('./playerRTPSocket');
 const mgmtCall = require('./mgmtCall');
 const tls = require('tls');
+const process = require('process');
 
 const {
     PlayerCmd,
@@ -34,9 +35,19 @@ let logger;
 async function main() {
 
     try {
+
         await Common.init();
         logger = Common.logger(__filename);
         logger.info("Start gateway", {mtype: "important"});
+
+        // setup exception handler
+        process.on('uncaughtException', (err, origin) => {
+            console.log(`gateway.js. uncaughtException: ${err.message}`);
+            logger.info(`uncaughtException: ${err.message}, Stack: ${err.stack}`);
+        });
+
+        // change default number of _maxListeners
+        require('events').EventEmitter.prototype._maxListeners = 100;
 
         let reloadSettings = async() => {
             logger.info("Settings reloaded...");
@@ -145,3 +156,5 @@ async function updateGWTTL(idx) {
 }
 
 main();
+
+
