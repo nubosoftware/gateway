@@ -13,8 +13,8 @@ const PAYLOAD_AUDIO_KEEP_ALIVE = 3;
 
 class PlayerRTPSocket extends EventEmitter {
     /**
-     * 
-     * @param {number} port 
+     *
+     * @param {number} port
      */
     constructor(port) {
         super();
@@ -25,7 +25,7 @@ class PlayerRTPSocket extends EventEmitter {
         server.on('error', (err) => {
             this.log(`server error:\n${err.stack}`);
             server.close();
-            this.emit('error', err);
+            //this.emit('error', err);
         });
 
         server.on('message', (msg, rinfo) => {
@@ -48,10 +48,10 @@ class PlayerRTPSocket extends EventEmitter {
 
 
     /**
-     * 
-     * @param {string} rtpAudioDownInetAddress 
-     * @param {number} rtpAudioDownPort 
-     * @param {RTPPacket} rtpPacket 
+     *
+     * @param {string} rtpAudioDownInetAddress
+     * @param {number} rtpAudioDownPort
+     * @param {RTPPacket} rtpPacket
      */
     sendDataToPlayer(rtpAudioDownInetAddress, rtpAudioDownPort, rtpPacket) {
         try {
@@ -63,9 +63,9 @@ class PlayerRTPSocket extends EventEmitter {
     }
 
     /**
-     * 
-     * @param {Buffer} packet 
-     * @param {*} rinfo 
+     *
+     * @param {Buffer} packet
+     * @param {*} rinfo
      */
     onPacket(buf, rinfo) {
         if (buf.length >= RTP_HEADER_LENGTH) {

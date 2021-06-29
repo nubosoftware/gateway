@@ -51,9 +51,18 @@ class NetConn extends EventEmitter {
 
             }*/
         }
+        const timeoutHandler = () => {
+            logger.info(`${nc.TAG}. socket timeout`);
+            try {
+                nc.socket.destroy(new Error("Socket timeout"));
+            } catch (err) {
+
+            }
+        }
 
         this.socket.on("error", errorHandler);
         this.socket.on("close", closeHandler)
+        this.socket.on('timeout',timeoutHandler);
     }
 
     log(msg) {

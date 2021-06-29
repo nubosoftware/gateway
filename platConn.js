@@ -31,6 +31,7 @@ class PlatConn extends NetConn {
 
     async runPlatConnn() {
         this.mStopThread = false;
+        this.socket.setTimeout(60000 * 60 * 24); // default socket timeout is one day for platforms
         try {
             this.mPlatformId = await this.readInt();
             this.mSessionId = await this.readString();

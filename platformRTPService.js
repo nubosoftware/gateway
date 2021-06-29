@@ -23,7 +23,7 @@ class PlatformRTPService extends EventEmitter {
         server.on('error', (err) => {
             this.log(`server error:\n${err.stack}`);
             server.close();
-            this.emit('error', err);
+            //this.emit('error', err);
         });
 
         server.on('message', (msg, rinfo) => {

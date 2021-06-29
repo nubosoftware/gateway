@@ -66,6 +66,7 @@ class PlayerConn extends NetConn {
 
     async runPlayerConn() {
         this.log(`runPlayerConn`);
+        this.socket.setTimeout(60000); // default socket timeout is one minute for players
 
         this.mStopThread = false;
         this.mIsReadBytesCount = false;
