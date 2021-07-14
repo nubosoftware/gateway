@@ -4,7 +4,9 @@
   "description": "Nubo Gateway",
   "main": "gateway.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "rm -rf dist && node --max_old_space_size=10240 ./node_modules/webpack/bin/webpack.js --progress=profile --mode production",
+    "start": "node ./dist/gateway.js"
   },
   "author": "",
   "license": "ISC",
@@ -17,5 +19,17 @@
     "underscore": "^1.13.1",
     "winston": "^3.3.3",
     "winston-syslog": "^2.4.4"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.14.6",
+    "@babel/preset-env": "^7.14.7",
+    "babel-loader": "^8.2.2",
+    "ignore-loader": "^0.1.2",
+    "javascript-obfuscator": "^2.15.5",
+    "webpack": "^5.44.0",
+    "webpack-cli": "^4.7.2",
+    "webpack-ignore-dynamic-require": "^1.0.0",
+    "webpack-node-externals": "^3.0.0",
+    "webpack-obfuscator": "^3.3.2"
   }
 }

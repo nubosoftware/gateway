@@ -28,9 +28,32 @@ const defaultSettings = {
 class Common {
     constructor() {
         let common = this;
-        let settingsFile = require.resolve('./Settings.json');
+        common.rootDir = process.cwd();
+        let settingsFile = path.resolve('./Settings.json');
+        console.log(`settingsFile: ${settingsFile}`);
+        //let settingsFile = require.resolve('./Settings.json');
         let settingsReloadCB = null;
         let loadSettings = () => {
+            try {
+                let data = fs.readFileSync('Settings.json','utf8');
+                let rawSettings = data.toString().replace(/[\n|\t]/g, '');
+                let settings = JSON.parse(rawSettings);
+                common.settings =  _.extend({},defaultSettings,settings);
+                console.log("Settings: "+JSON.stringify(common.settings,null,2));
+                let saveCB = settingsReloadCB;
+                common.settingsReload = new Promise((resolve, reject) => {
+                    settingsReloadCB = {
+                        resolve: resolve,
+                        reject: reject
+                    };
+                });
+                if (saveCB) {
+                    saveCB.resolve(true);
+                }
+            } catch (err) {
+                saveCB.reject(err);
+            }
+            /*
             delete require.cache[settingsFile];
             common.settings =  _.extend({},defaultSettings,require(settingsFile));
             console.log("Settings: "+JSON.stringify(common.settings,null,2));
@@ -43,7 +66,7 @@ class Common {
             });
             if (saveCB) {
                 saveCB.resolve(true);
-            }
+            }*/
         }
         let initCB = null;
         let initPromise = new Promise((resolve, reject) => {
@@ -62,6 +85,7 @@ class Common {
             // init logger
             const myFormat = printf(info => {
                 return `${info.timestamp} [${info.label}] ${info.level}: ${info.message}`;
+                //return info.timestamp + /*' ['+info.label+'] '+*/info.level+': '+info.message;
             });
             require('winston-syslog').Syslog;
             const intLogger = createLogger({
@@ -79,7 +103,7 @@ class Common {
                     }),
                     new transports.File({
                         name: 'file',
-                        filename: __dirname + '/log/' + loggerName,
+                        filename: common.rootDir + '/log/' + loggerName,
                         handleExceptions: false,
                         maxsize: 100 * 1024 * 1024, //100MB
                         maxFiles: 4,
@@ -93,17 +117,6 @@ class Common {
                         format: format.json()
                     })
                 ],
-                /*exceptionHandlers: [
-                    new(transports.Console)({
-                        json: false,
-                        timestamp: true
-                    }),
-                    new transports.File({
-                        filename: __dirname + '/log/' + exceptionLoggerName,
-                        json: false
-                    })
-                ],
-                exitOnError: false*/
             });
 
             common.logger = (fileName) => {
