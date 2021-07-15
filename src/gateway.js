@@ -96,48 +96,63 @@ async function main() {
 }
 
 let registeredGWs = 0;
+let updateGWInterval;
 
 async function registerGateway(service, isSsl) {
     const data = Common.settings;
+    let isSuccess = false;
+    while (!isSuccess) {
+        try {
+            let external_ip,port,ssl;
+            if (data.external_url && data.external_url != "") {
+                const exURL = new URL(data.external_url);
+                external_ip = exURL.hostname;
+                port = exURL.port;
+                ssl = (exURL.protocol == "ssl:" ? "true" : "false");
+            } else {
+                external_ip = data.external_ip;
+                port = service.port;
+                ssl = (isSsl ? "true" : "false");
+            }
+            let url = "/redisGateway/registerGateway?baseIndex=" + data.base_index + "&offset=" + registeredGWs;
+            url = url + "&internal_ip=" + data.internal_ip;
+            url = url + "&controller_port=" + (data.platformControlPort ? data.platformControlPort : 8891 );
+            url = url + "&apps_port=" + (data.platformPort ? data.platformPort : 8890 );
+            url = url + "&external_ip=" + external_ip;
+            url = url + "&player_port=" + port;
+            url = url + "&ssl=" + ssl;
 
-    let external_ip,port,ssl;
-    if (data.external_url && data.external_url != "") {
-        const exURL = new URL(data.external_url);
-        external_ip = exURL.hostname;
-        port = exURL.port;
-        ssl = (exURL.protocol == "ssl:" ? "true" : "false");
-    } else {
-        external_ip = data.external_ip;
-        port = service.port;
-        ssl = (isSsl ? "true" : "false");
-    }
-    let url = "/redisGateway/registerGateway?baseIndex=" + data.base_index + "&offset=" + registeredGWs;
-    url = url + "&internal_ip=" + data.internal_ip;
-    url = url + "&controller_port=" + (data.platformControlPort ? data.platformControlPort : 8891 );
-    url = url + "&apps_port=" + (data.platformPort ? data.platformPort : 8890 );
-    url = url + "&external_ip=" + external_ip;
-    url = url + "&player_port=" + port;
-    url = url + "&ssl=" + ssl;
+            let response = await mgmtCall.get({
+                url,
+            });
 
-    let response = await mgmtCall.get({
-        url,
-    });
-
-    if (response.data.status == GWStatusCode.OK) {
-        let gwIdx = response.data.gwIdx;
-        registeredGWs++;
-        setInterval(() => {
-            updateGWTTL(gwIdx);
-        }, 5000);
-        return gwIdx;
-    } else {
-        logger.error(`Cannot register gateway. status: ${response.data.status}, msg: ${response.data.msg}`);
-        return GWStatusCode.errIllegalRedisData;
+            if (response.data.status == GWStatusCode.OK) {
+                let gwIdx = response.data.gwIdx;
+                registeredGWs++;
+                isSuccess = true;
+                logger.info(`Gateway registered. Gateway ID: ${gwIdx}`)
+                updateGWInterval = setInterval(() => {
+                    updateGWTTL(gwIdx,service,isSsl);
+                }, 5000);
+                return gwIdx;
+            } else {
+                logger.error(`Cannot register gateway. status: ${response.data.status}, msg: ${response.data.msg}`);
+                //return GWStatusCode.errIllegalRedisData;
+            }
+        } catch(err) {
+            logger.info(`Cannot register gateway. Error: ${err}`);
+        }
+        await sleep(5000);
     }
 }
 
-async function updateGWTTL(idx) {
+async function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function updateGWTTL(idx,service,isSsl) {
     const data = Common.settings;
+    let isSuccess = false;
     const url = "/redisGateway/updateGatewayTtl?idx=" + idx + "&ttl=240&internal_ip=" +
         data.internal_ip;
     try {
@@ -147,11 +162,20 @@ async function updateGWTTL(idx) {
 
         if (response.data.status == GWStatusCode.OK) {
             //logger.info("Updated TTL");
+            isSuccess = true;
         } else {
             logger.error(`Cannot update gateway ttl. status: ${response.data.status}, msg: ${response.data.msg}`);
         }
     } catch (err) {
         logger.error(`Cannot update gateway ttl. err: ${err}`);
+    }
+    if (!isSuccess) {
+        clearInterval(updateGWInterval);
+        setTimeout(() => {
+            logger.info(`Try to re-register gateway`);
+            registerGateway(service,isSsl);
+        }, 5000);
+
     }
 }
 
