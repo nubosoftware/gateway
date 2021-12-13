@@ -1,11 +1,11 @@
 Summary: nubogateway service
-Name: nubogateway2
+Name: nubogateway
 Version: %{_version}
 Release: %{_release}
 Group: System Environment/Daemons
 BuildArch: x86_64
 License: none
-Requires: nodejs >= 4.4.5
+Requires: nodejs
 
 %description
 Service that implement api of possible requests to nubo platform
@@ -22,11 +22,17 @@ mkdir -p $RPM_BUILD_ROOT/opt/nubogateway
 mkdir -p $RPM_BUILD_ROOT/etc/systemd/system/
 mkdir -p $RPM_BUILD_ROOT/etc/rsyslog.d
 
+echo "Run webpack..."
+cd $NUBO_PROJ_PATH/nubogateway2
+npm run-script build
+cp -a dist/ $RPM_BUILD_ROOT/opt/nubogateway/dist/
+cd -
+
 #Copy js files from git project
-FILES=`git ls-tree --full-tree -r HEAD | awk '$4 ~ /.+\.js$/ {print $4}'`
-for file in ${FILES}; do
-    install -D -m 644 $PROJ_PATH/$file $RPM_BUILD_ROOT/opt/nubogateway/$file
-done
+#FILES=`git ls-tree --full-tree -r HEAD | awk '$4 ~ /.+\.js$/ {print $4}'`
+#for file in ${FILES}; do
+#    install -D -m 644 $PROJ_PATH/$file $RPM_BUILD_ROOT/opt/nubogateway/$file
+#done
 #install -m 644 $PROJ_PATH/Settings.json.init $RPM_BUILD_ROOT/opt/nubogateway/Settings.json
 echo "{}" > $RPM_BUILD_ROOT/opt/nubogateway/Settings.json
 install -m 644 $NUBO_PROJ_PATH/nubogateway2/nubogateway.service $RPM_BUILD_ROOT/etc/systemd/system/nubogateway.service
@@ -35,7 +41,7 @@ install -m 644 $PROJ_PATH/package.json $RPM_BUILD_ROOT/opt/nubogateway/package.j
 
 
 cd $RPM_BUILD_ROOT/opt/nubogateway
-npm install
+npm install --only=prod
 rm package.json
 find $RPM_BUILD_ROOT/opt/nubogateway/node_modules -type f -exec sed "s?$RPM_BUILD_ROOT?/?g" -i {} \;
 cd -
