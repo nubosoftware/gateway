@@ -5,6 +5,8 @@ const { createLogger, format, transports } = require('winston');
 const { combine, timestamp, label, printf } = format;
 const path = require('path');
 const _ = require('underscore');
+var fsp = require('fs').promises;
+
 
 const defaultSettings = {
     "compressStream": "true",
@@ -13,6 +15,8 @@ const defaultSettings = {
     "platformPort": "8890",
     "playerPort": "0",
     "sslPlayerPort": "7443",
+    "platformRTPPort": "60005",
+    "PlayerRTPPort": "50005",
     "base_index": "1",
     "redisWrapperUrl": "http://127.0.0.1:8080",
     "backendAuthUser": "none",
@@ -25,15 +29,102 @@ const defaultSettings = {
     }
 };
 
+
+const DOCKERKEY = '/etc/.nubo/.docker';
+
+async function fileExists(filepath) {
+    try {
+        await fsp.access(filepath);
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+async function fileMoveIfNedded(newFilePath,oldFilePath) {
+    let exists = await fileExists(newFilePath);
+    if (exists) {
+        return;
+    }
+    let oldExists = await fileExists(oldFilePath);
+    if (oldExists) {
+        console.log(`Moving file ${oldFilePath} to new location at: ${newFilePath}`);
+        let dir = path.dirname(newFilePath);
+        await fsp.mkdir(dir,{recursive: true});
+        await fsp.copyFile(oldFilePath,newFilePath);
+        await fsp.unlink(oldFilePath);
+        return;
+    } else {
+        throw new Error(`File not found in both old location: ${oldFilePath} and new location: ${newFilePath}`);
+    }
+}
+
+
+
+
+
+
+
 class Common {
+
+    async checkDockerConf() {
+        let common = this;
+        if (!common._isDockerChecked) {        
+            let isDocker = await fileExists(DOCKERKEY);        
+            let settingsFileName;
+            console.log(`common.rootDir: ${common.rootDir}`);
+            if (isDocker) {
+                console.log("Runnig in a docker container");
+                common.isDocker = true;
+                settingsFileName = path.join(common.rootDir,'conf','Settings.json');
+                // move file if needed
+                const oldfileLocation = path.join(common.rootDir,'Settings.json');
+                await fileMoveIfNedded(settingsFileName,oldfileLocation);           
+            } else {
+                common.isDocker = false;
+                settingsFileName = path.join(common.rootDir,'Settings.json');
+            }  
+            common._isDockerChecked = true;
+            common.settingsFileName = settingsFileName;
+        }
+    }
+
+    loadSettings() {
+        let common = this;
+        return new Promise((resolve, reject) => {        
+            common.checkDockerConf().then(() => {
+                return fsp.readFile(common.settingsFileName,"utf8");
+            }).then(data => {
+                let rawSettings = data.toString().replace(/[\n|\t]/g, '');
+                let settings = JSON.parse(rawSettings);
+                common.settings =  _.extend({},defaultSettings,settings);
+                console.log("Settings: "+JSON.stringify(common.settings,null,2));
+                resolve();
+            })        
+            .catch(err => {
+                console.error(err);
+                reject(err);
+            });
+        });
+    }
+
     constructor() {
         let common = this;
         common.rootDir = process.cwd();
-        let settingsFile = path.resolve('./Settings.json');
-        console.log(`settingsFile: ${settingsFile}`);
+        //let settingsFile = path.resolve('./Settings.json');
+        //console.log(`settingsFile: ${settingsFile}`);
         //let settingsFile = require.resolve('./Settings.json');
+
+
+        // initialize promise that will call every time a setting reload
         let settingsReloadCB = null;
-        let loadSettings = () => {
+        common.settingsReload = new Promise((resolve, reject) => {
+            settingsReloadCB = {
+                resolve: resolve,
+                reject: reject
+            };
+        });
+        /*(let loadSettings = () => {
             try {
                 let data = fs.readFileSync('Settings.json','utf8');
                 let rawSettings = data.toString().replace(/[\n|\t]/g, '');
@@ -53,31 +144,17 @@ class Common {
             } catch (err) {
                 saveCB.reject(err);
             }
-            /*
-            delete require.cache[settingsFile];
-            common.settings =  _.extend({},defaultSettings,require(settingsFile));
-            console.log("Settings: "+JSON.stringify(common.settings,null,2));
-            let saveCB = settingsReloadCB;
-            common.settingsReload = new Promise((resolve, reject) => {
-                settingsReloadCB = {
-                    resolve: resolve,
-                    reject: reject
-                };
-            });
-            if (saveCB) {
-                saveCB.resolve(true);
-            }*/
-        }
+           
+        }*/
+
+        // initiaze a promise that will after the first init
         let initCB = null;
         let initPromise = new Promise((resolve, reject) => {
             initCB = {
                 resolve: resolve,
                 reject: reject
             };
-            // do the actual initialization here
-
-            // load settings for first time
-            loadSettings();
+            // do the actual initialization here            
 
             var loggerName = path.basename(process.argv[1], '.js') + ".log";
             var exceptionLoggerName = path.basename(process.argv[1], '.js') + "_exceptions.log";
@@ -186,19 +263,24 @@ class Common {
 
             let commonLogger = common.logger(__filename);
 
-            // watch settings file
-            fs.watchFile(settingsFile, { persistent: false, interval: 5007 }, function(curr, prev) {
-                commonLogger.info('Settings.json. the current mtime is: ' + curr.mtime);
-                commonLogger.info('Settings.json. the previous mtime was: ' + prev.mtime);
-                loadSettings();
+            // load settings for first time
+            common.loadSettings().then(() => {
+                // watch settings file
+                fs.watchFile(common.settingsFileName, { persistent: false, interval: 5007 }, function(curr, prev) {
+                    commonLogger.info('Settings.json. the current mtime is: ' + curr.mtime);
+                    commonLogger.info('Settings.json. the previous mtime was: ' + prev.mtime);
+                    common.loadSettings().then(() => {
+                        settingsReloadCB.resolve();
+                    }).catch(err => {
+                        commonLogger.error(`Error while load settings: ${err}`);
+                    });
+                });
+                commonLogger.info("Initialized");
+                initCB.resolve(true);
+            }).catch(err => {
+                commonLogger.error(`Fatal error while load setting: ${err}`,err);
+                process.exit(1);
             });
-
-
-            commonLogger.info("Initialized");
-
-            initCB.resolve(true);
-
-
         });
 
         this.init = function() {

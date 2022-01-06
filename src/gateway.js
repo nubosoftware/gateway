@@ -51,23 +51,26 @@ async function main() {
 
         let reloadSettings = async() => {
             logger.info("Settings reloaded...");
-            await loadSecureContext();
-            Common.settingsReload.then(reloadSettings);
+            await loadSecureContext();            
         }
         Common.settingsReload.then(reloadSettings);
         await loadSecureContext();
 
-        let platformControlService = new NetService((Common.settings.platformControlPort ? Common.settings.platformControlPort : 8891), PlatControl);
-        await platformControlService.listen();
+        if (Common.settings.platformControlPort) {
+            let platformControlService = new NetService(Common.settings.platformControlPort , PlatControl);
+            await platformControlService.listen();
+        }
 
-        let platformConnService = new NetService((Common.settings.platformPort ? Common.settings.platformPort : 8890), PlatConn);
-        await platformConnService.listen();
+        if (Common.settings.platformPort) {
+            let platformConnService = new NetService(Common.settings.platformPort, PlatConn);
+            await platformConnService.listen();
+        }
 
         if (Common.settings.playerPort && Common.settings.playerPort > 0) {
             let playerService = new NetService(Common.settings.playerPort, PlayerConn);
             await playerService.listen();
             await registerGateway(playerService, false);
-        } else {
+        } else if (Common.settings.sslPlayerPort && Common.settings.sslPlayerPort > 0) {
             let tlsOptions = //Common.settings.tlsOptions;
             {
                 SNICallback: (servername, cb) => {
@@ -80,11 +83,15 @@ async function main() {
             await registerGateway(playerService, true);
         }
 
-        let platformRTPService = new PlatformRTPService(60005);
+        if (Common.settings.platformRTPPort) {
+            let platformRTPService = new PlatformRTPService(Common.settings.platformRTPPort);
+        }
 
-        let playerRTPSocket = new PlayerRTPSocket(50005);
+        if (Common.settings.PlayerRTPPort) {
+            let playerRTPSocket = new PlayerRTPSocket(Common.settings.PlayerRTPPort);
+        }
 
-        logger.info("end of gateway!", {mtype: "important"});
+        logger.info("Gateway loaded!", {mtype: "important"});
 
     } catch (err) {
         if (logger) {
