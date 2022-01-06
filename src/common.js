@@ -16,7 +16,8 @@ const defaultSettings = {
     "playerPort": "0",
     "sslPlayerPort": "7443",
     "platformRTPPort": "60005",
-    "PlayerRTPPort": "50005",
+    "playerRTPPort": "50005",
+    "guacPort":false,
     "base_index": "1",
     "redisWrapperUrl": "http://127.0.0.1:8080",
     "backendAuthUser": "none",
@@ -24,8 +25,7 @@ const defaultSettings = {
     "platformVersionCode": 290,
     "tlsOptions": {
         "keyfile": "../cert/server.key",
-        "certfile": "../cert/server.cert",
-        "cafile": "../cert/root.crt"
+        "certfile": "../cert/server.cert"        
     }
 };
 

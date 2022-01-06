@@ -19,19 +19,27 @@ const {
     GWStatusCode,
     DrawCmd,
 } = require('./constants');
+
+let logger;
+
+
 async function loadSecureContext() {
     const readFile = require('fs').promises.readFile;
     if (Common.settings.tlsOptions) {
-        Common.settings.tlsOptions.key = await readFile(Common.settings.tlsOptions.keyfile);
-        Common.settings.tlsOptions.cert = await readFile(Common.settings.tlsOptions.certfile);
-        if (Common.settings.tlsOptions.cafile) {
-            logger.info("Loading cafile..");
-            Common.settings.tlsOptions.ca = await readFile(Common.settings.tlsOptions.cafile);
+        try {
+            Common.settings.tlsOptions.key = await readFile(Common.settings.tlsOptions.keyfile);
+            Common.settings.tlsOptions.cert = await readFile(Common.settings.tlsOptions.certfile);
+            if (Common.settings.tlsOptions.cafile) {
+                logger.info("Loading cafile..");
+                Common.settings.tlsOptions.ca = await readFile(Common.settings.tlsOptions.cafile);
+            }
+            secureCtx = tls.createSecureContext(Common.settings.tlsOptions);
+        } catch (err) {
+            logger.error(`Unable to create TLS context: ${err}`,err);
         }
-        secureCtx = tls.createSecureContext(Common.settings.tlsOptions);
     }
 }
-let logger;
+
 async function main() {
 
     try {
@@ -81,14 +89,19 @@ async function main() {
             let playerService = new NetService(Common.settings.sslPlayerPort, PlayerConn, tlsOptions);
             await playerService.listen();
             await registerGateway(playerService, true);
+        } else if (Common.settings.guacPort && Common.settings.guacPort > 0) {
+            logger.info(`Guacd listen on port ${Common.settings.guacPort}`);
+            await registerGateway({port: Common.settings.guacPort}, false);
+        } else {
+            throw new Error("Not found any client service to listen.");
         }
 
         if (Common.settings.platformRTPPort) {
             let platformRTPService = new PlatformRTPService(Common.settings.platformRTPPort);
         }
 
-        if (Common.settings.PlayerRTPPort) {
-            let playerRTPSocket = new PlayerRTPSocket(Common.settings.PlayerRTPPort);
+        if (Common.settings.playerRTPPort) {
+            let playerRTPSocket = new PlayerRTPSocket(Common.settings.playerRTPPort);
         }
 
         logger.info("Gateway loaded!", {mtype: "important"});

@@ -3,5 +3,13 @@
 #remove "/" from tail of redisWrapperUrl
 sed 's/\(\"redisWrapperUrl\"[ \t]*:[ \t]\"[^\/]*\/\/[^\/]*\)[\/]*/\1/' -i /opt/nubogateway/Settings.json
 
-systemctl enable nubogateway
-systemctl restart nubogateway
+FILE=/etc/.nubo/.docker
+if [ -f "$FILE" ]; then
+# inside docker - TBD add docker restart of services
+    echo "Running in a docker container"    
+else 
+    systemctl enable nubogateway
+    systemctl restart nubogateway
+fi
+
+

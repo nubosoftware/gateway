@@ -39,5 +39,10 @@ $(nubo_proj_dir)/rpms/latest/nubogateway2-$(server_version)-$(server_buildid).x8
 	-bb rpmbuild/SPECS/nubogateway2.spec
 	cp $(nubo_proj_dir)/nubogateway2/rpmbuild/RPMS/x86_64/nubogateway2-$(server_version)-$(server_buildid).x86_64.rpm $@
 
-.PHONY: deb default rpm
+docker: deb
+	mkdir -p docker_build/debs/
+	cp $(nubo_proj_dir)/debs/latest/nubogateway2-$(server_version)-$(server_buildid).$(LSBDIST).deb docker_build/debs/nubogateway2.deb	
+	docker build -t gateway:$(server_version)-$(server_buildid) docker_build/.
+
+.PHONY: deb default rpm docker
 
