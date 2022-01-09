@@ -99,6 +99,7 @@ RUN apt install -y netcat-openbsd     \
         fonts-dejavu                  \
         libcairo2                     \
         libssh2-1                     \
+        libfreerdp-client2-2          \
         xfonts-terminus
 
 RUN apt install -y $(cat "${PREFIX_DIR}"/DEPENDENCIES)
