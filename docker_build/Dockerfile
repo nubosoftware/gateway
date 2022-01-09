@@ -98,14 +98,16 @@ RUN apt install -y netcat-openbsd     \
         fonts-liberation              \
         fonts-dejavu                  \
         libcairo2                     \
+        libssh2-1                     \
         xfonts-terminus
 
 RUN apt install -y $(cat "${PREFIX_DIR}"/DEPENDENCIES)
 
 # Link FreeRDP plugins into proper path
-RUN ${PREFIX_DIR}/bin/link-freerdp-plugins.sh \
-        ${PREFIX_DIR}/lib/freerdp2/libguac*.so
-
+ENV FREERDP_PLUGIN_DIR=/usr/lib/x86_64-linux-gnu/freerdp2
+RUN mkdir -p $FREERDP_PLUGIN_DIR && \
+        ln -s "${PREFIX_DIR}/lib/freerdp2/libguac-common-svc-client.so" "$FREERDP_PLUGIN_DIR" && \
+        ln -s "${PREFIX_DIR}/lib/freerdp2/libguacai-client.so" "$FREERDP_PLUGIN_DIR"
 
 
 
@@ -133,18 +135,23 @@ RUN sed -i /imklog/s/module/#module/ /etc/rsyslog.conf
 # Checks the operating status every 5 minutes with a timeout of 5 seconds
 HEALTHCHECK --interval=5m --timeout=5s CMD nc -z 127.0.0.1 4822 || exit 1
 
-# Create a new user guacd
+# Create a new user nubo
 ARG UID=1000
 ARG GID=1000
-RUN groupadd --gid $GID guacd
-RUN useradd --system --create-home --shell /usr/sbin/nologin --uid $UID --gid $GID guacd
+RUN groupadd --gid $GID nubo
+RUN useradd --system --create-home --shell /usr/sbin/nologin --uid $UID --gid $GID nubo
 
-# Run with user guacd
-# USER guacd
+RUN chown -R nubo:nubo /opt/nubogateway && \
+        mkdir -p /var/run/supervisor && \
+        chown -R nubo:nubo var/run/supervisor && \
+        mkdir -p /var/log/supervisor && \
+        chown -R nubo:nubo var/log/supervisor
+
+# Run with user nubo
+# USER nubo
 
 # Docker config
 VOLUME ["/opt/nubogateway/conf"]
 EXPOSE 4822
 ENTRYPOINT ["/usr/bin/docker-entrypoint.sh"]
 CMD ["supervisord"]
-#CMD /usr/local/guacamole/sbin/guacd -b 0.0.0.0 -L $GUACD_LOG_LEVEL -f

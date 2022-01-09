@@ -11,6 +11,7 @@ const { PlayerRTPSocket } = require('./playerRTPSocket');
 const mgmtCall = require('./mgmtCall');
 const tls = require('tls');
 const process = require('process');
+const guac = require('./guac');
 
 const {
     PlayerCmd,
@@ -91,6 +92,7 @@ async function main() {
             await registerGateway(playerService, true);
         } else if (Common.settings.guacPort && Common.settings.guacPort > 0) {
             logger.info(`Guacd listen on port ${Common.settings.guacPort}`);
+            guac.startGuacd(Common.settings.guacPort);
             await registerGateway({port: Common.settings.guacPort}, false);
         } else {
             throw new Error("Not found any client service to listen.");
