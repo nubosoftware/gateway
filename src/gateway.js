@@ -106,6 +106,17 @@ async function main() {
             let playerRTPSocket = new PlayerRTPSocket(Common.settings.playerRTPPort);
         }
 
+        
+
+        process.on('SIGINT', function() {
+            logger.info("Gateway caught SIGINT signal");
+            Common.quit();
+        });
+        process.on('SIGTERM', function() {
+            logger.info("Gateway caught SIGTERM signal");
+            Common.quit();
+        });
+
         logger.info("Gateway loaded!", {mtype: "important"});
 
     } catch (err) {

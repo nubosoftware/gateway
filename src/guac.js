@@ -4,6 +4,12 @@ const Common = require('./common.js');
 const logger = Common.logger(__filename);
 const spawn = require('child_process').spawn;
 
+
+/**
+ * the guacd ChildProcess 
+ */
+var guacdProcess = null;
+
 /**
  * Start guacd daemon with the given port number
  * @param {Number} port 
@@ -24,15 +30,26 @@ function startGuacd(port) {
 
         child.on('close', (code) => {
             logger.info(`guacd child process exited with code ${code}`);
+            guacdProcess = null;
         });
         child.on('error', (err) => {
             logger.error(`guacd child process error: ${err}`,err);
         });
+        guacdProcess = child;
+        Common.exitJobs.push(exit);
     } catch (err) {
         logger.error(`Unable to start guacd: ${err}`,err);
     }
 }
 
+async function exit() {
+    if (guacdProcess) {
+        logger.info(`Sending SIGTERM to guacd (pid: ${guacdProcess.pid})`);
+        guacdProcess.kill();
+    }
+}
+
 module.exports = {
-    startGuacd
+    startGuacd,
+    exit
 }

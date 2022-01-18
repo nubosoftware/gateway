@@ -134,7 +134,7 @@ ADD bin /usr/bin
 RUN sed -i /imklog/s/module/#module/ /etc/rsyslog.conf
 
 # Checks the operating status every 5 minutes with a timeout of 5 seconds
-HEALTHCHECK --interval=5m --timeout=5s CMD nc -z 127.0.0.1 4822 || exit 1
+# HEALTHCHECK --interval=5m --timeout=5s CMD nc -z 127.0.0.1 4822 || exit 1
 
 # Create a new user nubo
 ARG UID=1000

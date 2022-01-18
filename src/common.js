@@ -281,6 +281,22 @@ class Common {
                 commonLogger.error(`Fatal error while load setting: ${err}`,err);
                 process.exit(1);
             });
+
+
+            common.exitJobs = [];
+
+            common.quit = async function() {
+                commonLogger.info(`quit. Running ${common.exitJobs.length} exit jobs..`);
+                for (const job of common.exitJobs) {
+                    try {
+                        await job();
+                    } catch (e) {
+                        commonLogger.error(`Exit job error: ${e}`,e);
+                    }
+                }
+                commonLogger.info(`quit. Exit`);
+                process.exit(0);
+            };
         });
 
         this.init = function() {
