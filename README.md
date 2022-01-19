@@ -12,5 +12,8 @@ Mutiple services can be added for performance. The services independently regist
 git clone git@github.com:nubosoftware/gateway.git
 cd gateway
 npm install --only=dev
+cd docker_build
+git clone git@github.com:apache/guacamole-server.git
+cd ..
 make docker
 ```
