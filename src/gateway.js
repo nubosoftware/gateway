@@ -136,7 +136,7 @@ async function registerGateway(service, isSsl) {
     let isSuccess = false;
     while (!isSuccess) {
         try {
-            let external_ip,port,ssl;
+            let internal_ip,external_ip,port,ssl;
             if (data.external_url && data.external_url != "") {
                 const exURL = new URL(data.external_url);
                 external_ip = exURL.hostname;
@@ -147,8 +147,12 @@ async function registerGateway(service, isSsl) {
                 port = service.port;
                 ssl = (isSsl ? "true" : "false");
             }
+            internal_ip = data.internal_ip;
+            if (!internal_ip || internal_ip == "auto") {
+                internal_ip = await detectIP();
+            }
             let url = "/redisGateway/registerGateway?baseIndex=" + data.base_index + "&offset=" + registeredGWs;
-            url = url + "&internal_ip=" + data.internal_ip;
+            url = url + "&internal_ip=" + internal_ip;
             url = url + "&controller_port=" + (data.platformControlPort ? data.platformControlPort : 8891 );
             url = url + "&apps_port=" + (data.platformPort ? data.platformPort : 8890 );
             url = url + "&external_ip=" + external_ip;
@@ -177,6 +181,21 @@ async function registerGateway(service, isSsl) {
         }
         await sleep(5000);
     }
+}
+
+/**
+ * Detect the local IP address
+ * Try to send request to management and get the localAddress from the socker
+ * @returns IP address
+ */
+ async function detectIP() {
+    const url = "/redisGateway/updateGatewayTtl?idx=999&ttl=240&internal_ip=none";
+    let response = await mgmtCall.get({
+        url,
+    });    
+    const ip = response.request.socket.localAddress;
+    logger.info(`Detected local ip address: ${ip} `);
+    return ip;
 }
 
 async function sleep(ms) {
