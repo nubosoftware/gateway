@@ -1,5 +1,5 @@
 FROM ubuntu:20.04 as builder
-
+ARG BUILD_VER=3.2
 ENV DEBIAN_FRONTEND noninteractive
 RUN sed -i "s/# deb-src/deb-src/g" /etc/apt/sources.list
 RUN apt-get -y update
@@ -21,6 +21,7 @@ ARG BUILD_DEPENDENCIES="              \
         automake                      \
         freerdp2-dev                  \
         gcc                           \
+        git                           \
         libcairo2-dev                 \
         libgcrypt-dev                 \
         libjpeg-dev           \
@@ -43,11 +44,17 @@ ARG BUILD_DEPENDENCIES="              \
 #     bison libxml2-dev dpkg-dev libcap-dev wget"
 RUN apt-get -yy install  sudo apt-utils software-properties-common $BUILD_DEPENDENCIES
 
+# checkout guacamole server report
+RUN mkdir "${BUILD_DIR}" && \
+    git clone -b 1.4.0 https://github.com/apache/guacamole-server.git ${BUILD_DIR}
+
 # Add configuration scripts
-COPY guacamole-server/src/guacd-docker/bin "${PREFIX_DIR}/bin/"
+RUN mkdir -p "${PREFIX_DIR}/bin/" && \
+    cp -a ${BUILD_DIR}/src/guacd-docker/bin/* "${PREFIX_DIR}/bin/."
+#COPY guacamole-server/src/guacd-docker/bin "${PREFIX_DIR}/bin/"
 
 # Copy source to container for sake of build
-COPY guacamole-server "$BUILD_DIR"
+#COPY guacamole-server "$BUILD_DIR"
 
 # Build guacamole-server from local source
 RUN ${PREFIX_DIR}/bin/build-guacd.sh "$BUILD_DIR" "$PREFIX_DIR"
@@ -61,6 +68,8 @@ RUN ${PREFIX_DIR}/bin/list-dependencies.sh     \
 
 
 FROM ubuntu:20.04
+ARG BUILD_VER=3.2
+ARG TARGET_DIR=/opt/nubogateway
 RUN apt-get -y update
 # install linux packages
 RUN apt install -y \
@@ -120,21 +129,33 @@ RUN apt install -y nodejs
 RUN mkdir -p /etc/.nubo/ && \
     touch  /etc/.nubo/.docker
 
-# install nubo debs
-COPY debs /tmp
-RUN apt install -y \
-    /tmp/nubogateway2.deb
-    
-RUN rm -f /tmp/*.deb
-
-
 # configure
-ADD etc /etc
-ADD bin /usr/bin
+ADD docker_build/etc /etc
+ADD docker_build/bin /usr/bin
 RUN sed -i /imklog/s/module/#module/ /etc/rsyslog.conf
 
-# Checks the operating status every 5 minutes with a timeout of 5 seconds
-# HEALTHCHECK --interval=5m --timeout=5s CMD nc -z 127.0.0.1 4822 || exit 1
+# copy files to target dir
+RUN mkdir -p ${TARGET_DIR}
+COPY package.json ${TARGET_DIR}/.
+COPY webpack.config.js ${TARGET_DIR}/.
+ADD src ${TARGET_DIR}/src
+WORKDIR ${TARGET_DIR}
+RUN echo "VERSION: ${BUILD_VER}" > version.txt
+
+# add build essential
+RUN apt install -y build-essential
+
+# prepare the module
+RUN npm install
+
+# remove build-essntial
+RUN apt-get --purge autoremove -y build-essential
+
+# build the dist folder
+RUN npm run build
+
+# remove build dependencies
+RUN rm -rf src webpack.config.js
 
 # Create a new user nubo
 ARG UID=1000
@@ -142,17 +163,17 @@ ARG GID=1000
 RUN groupadd --gid $GID nubo
 RUN useradd --system --create-home --shell /usr/sbin/nologin --uid $UID --gid $GID nubo
 
-RUN chown -R nubo:nubo /opt/nubogateway && \
+RUN chown -R nubo:nubo ${TARGET_DIR} && \
         mkdir -p /var/run/supervisor && \
-        chown -R nubo:nubo var/run/supervisor && \
+        chown -R nubo:nubo /var/run/supervisor && \
         mkdir -p /var/log/supervisor && \
-        chown -R nubo:nubo var/log/supervisor
+        chown -R nubo:nubo /var/log/supervisor
 
 # Run with user nubo
 # USER nubo
 
 # Docker config
-VOLUME ["/opt/nubogateway/conf"]
+VOLUME ["${TARGET_DIR}/conf"]
 EXPOSE 4822
 ENTRYPOINT ["/usr/bin/docker-entrypoint.sh"]
 CMD ["supervisord"]

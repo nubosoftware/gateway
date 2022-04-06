@@ -17,6 +17,7 @@
     "promise-socket": "^7.0.0",
     "sequential-task-queue": "^1.2.1",
     "underscore": "^1.13.1",
+    "unix-dgram": "^2.0.4",
     "winston": "^3.3.3",
     "winston-syslog": "^2.4.4"
   },

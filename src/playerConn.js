@@ -334,8 +334,8 @@ class PlayerConn extends NetConn {
             let valid = await session.validateSession(2);
         }
         if (!session || !session.validSession) {
-            replyErrorOnLoginToPlayer(GWStatusCode.errIllegalSessionID);
-            log("PlayerConnection::handleChannelLogin cannot get valid data from managment server");
+            this.replyErrorOnLoginToPlayer(GWStatusCode.errIllegalSessionID);
+            this.log("PlayerConnection::handleChannelLogin cannot get valid data from managment server");
             this.mStopThread = true;
             return;
         }
@@ -468,8 +468,8 @@ class PlayerConn extends NetConn {
             let valid = await session.validateSession(2);
         }
         if (!session || !session.validSession) {
-            replyErrorOnLoginToPlayer(GWStatusCode.errIllegalSessionID);
-            log("PlayerConnection::handlePlayerLoginOnPlatform cannot get valid data from managment server");
+            this.replyErrorOnLoginToPlayer(GWStatusCode.errIllegalSessionID);
+            this.log("PlayerConnection::handlePlayerLoginOnPlatform cannot get valid data from managment server");
             this.mStopThread = true;
             return;
         }

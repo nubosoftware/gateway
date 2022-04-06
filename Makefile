@@ -4,8 +4,8 @@ nubo_proj_dir:=$(shell cd $(shell dirname $(mkfile_path))/..; pwd)
 
 current_dir := $(shell pwd)
 
-BASE_TAG := f039df2967bf6329143f7bf5e41b04ff0b565d3e
-BASE_VERSION := 3.1
+BASE_TAG := nubo_release_3.2
+BASE_VERSION := 3.2
 LSBDIST := $(shell lsb_release -cs)
 
 define get_project_version
@@ -39,10 +39,8 @@ $(nubo_proj_dir)/rpms/latest/nubogateway2-$(server_version)-$(server_buildid).x8
 	-bb rpmbuild/SPECS/nubogateway2.spec
 	cp $(nubo_proj_dir)/nubogateway2/rpmbuild/RPMS/x86_64/nubogateway2-$(server_version)-$(server_buildid).x86_64.rpm $@
 
-docker: deb
-	mkdir -p docker_build/debs/
-	cp $(nubo_proj_dir)/debs/latest/nubogateway2-$(server_version)-$(server_buildid).$(LSBDIST).deb docker_build/debs/nubogateway2.deb	
-	docker build -t gateway:$(server_version)-$(server_buildid) docker_build/.
+docker:
+	docker build --build-arg BUILD_VER=$(server_version)-$(server_buildid) -f  docker_build/Dockerfile -t gateway:$(server_version)-$(server_buildid) .
 
 .PHONY: deb default rpm docker
 
