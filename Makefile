@@ -40,7 +40,28 @@ $(nubo_proj_dir)/rpms/latest/nubogateway2-$(server_version)-$(server_buildid).x8
 	cp $(nubo_proj_dir)/nubogateway2/rpmbuild/RPMS/x86_64/nubogateway2-$(server_version)-$(server_buildid).x86_64.rpm $@
 
 docker:
-	docker build --build-arg BUILD_VER=$(server_version)-$(server_buildid) -f  docker_build/Dockerfile -t gateway:$(server_version)-$(server_buildid) .
+	docker build --build-arg BUILD_VER=$(server_version)-$(server_buildid) --no-cache --pull -f  docker_build/Dockerfile -t gateway:$(server_version)-$(server_buildid) .
+
+push-nubo: docker
+	docker tag gateway:$(server_version)-$(server_buildid) docker.nubosoftware.com:5000/nubo/gateway:$(server_version)-$(server_buildid)
+	docker push docker.nubosoftware.com:5000/nubo/gateway:$(server_version)-$(server_buildid)
+	docker tag gateway:$(server_version)-$(server_buildid) docker.nubosoftware.com:5000/nubo/gateway:$(server_version)
+	docker push docker.nubosoftware.com:5000/nubo/gateway:$(server_version)
+
+push-nubo-latest: push-nubo
+	docker tag gateway:$(server_version)-$(server_buildid) docker.nubosoftware.com:5000/nubo/gateway
+	docker push docker.nubosoftware.com:5000/nubo/gateway
+
+push-hub: docker
+	docker tag gateway:$(server_version)-$(server_buildid) nubosoftware/gateway:$(server_version)-$(server_buildid)
+	docker push nubosoftware/gateway:$(server_version)-$(server_buildid)
+	docker tag gateway:$(server_version)-$(server_buildid) nubosoftware/gateway:$(server_version)
+	docker push nubosoftware/gateway:$(server_version)
+
+push-hub-latest: push-nubo
+	docker tag gateway:$(server_version)-$(server_buildid) nubosoftware/gateway
+	docker push nubosoftware/gateway
+
 
 .PHONY: deb default rpm docker
 
