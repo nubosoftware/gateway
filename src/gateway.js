@@ -51,7 +51,7 @@ async function main() {
 
         // setup exception handler
         process.on('uncaughtException', (err, origin) => {
-            console.log(`gateway.js. uncaughtException: ${err.message}`);
+            console.error(`gateway.js. uncaughtException: ${err.message}, Stack: ${err.stack}, origin: ${origin}`);
             logger.info(`uncaughtException: ${err.message}, Stack: ${err.stack}`);
         });
 
@@ -60,7 +60,7 @@ async function main() {
 
         let reloadSettings = async() => {
             logger.info("Settings reloaded...");
-            await loadSecureContext();            
+            await loadSecureContext();
         }
         Common.settingsReload.then(reloadSettings);
         await loadSecureContext();
@@ -106,7 +106,7 @@ async function main() {
             let playerRTPSocket = new PlayerRTPSocket(Common.settings.playerRTPPort);
         }
 
-        
+
 
         process.on('SIGINT', function() {
             logger.info("Gateway caught SIGINT signal");
@@ -192,7 +192,7 @@ async function registerGateway(service, isSsl) {
     const url = "/redisGateway/updateGatewayTtl?idx=999&ttl=240&internal_ip=none";
     let response = await mgmtCall.get({
         url,
-    });    
+    });
     const ip = response.request.socket.localAddress;
     logger.info(`Detected local ip address: ${ip} `);
     return ip;

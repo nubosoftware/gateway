@@ -58,7 +58,7 @@ push-hub: docker
 	docker tag gateway:$(server_version)-$(server_buildid) nubosoftware/gateway:$(server_version)
 	docker push nubosoftware/gateway:$(server_version)
 
-push-hub-latest: push-nubo
+push-hub-latest: push-hub
 	docker tag gateway:$(server_version)-$(server_buildid) nubosoftware/gateway
 	docker push nubosoftware/gateway
 

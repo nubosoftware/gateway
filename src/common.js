@@ -6,6 +6,8 @@ const { combine, timestamp, label, printf } = format;
 const path = require('path');
 const _ = require('underscore');
 var fsp = require('fs').promises;
+const os = require('os');
+
 
 
 const defaultSettings = {
@@ -25,7 +27,7 @@ const defaultSettings = {
     "platformVersionCode": 290,
     "tlsOptions": {
         "keyfile": "../cert/server.key",
-        "certfile": "../cert/server.cert"        
+        "certfile": "../cert/server.cert"
     }
 };
 
@@ -69,8 +71,8 @@ class Common {
 
     async checkDockerConf() {
         let common = this;
-        if (!common._isDockerChecked) {        
-            let isDocker = await fileExists(DOCKERKEY);        
+        if (!common._isDockerChecked) {
+            let isDocker = await fileExists(DOCKERKEY);
             let settingsFileName;
             console.log(`common.rootDir: ${common.rootDir}`);
             if (isDocker) {
@@ -79,11 +81,11 @@ class Common {
                 settingsFileName = path.join(common.rootDir,'conf','Settings.json');
                 // move file if needed
                 const oldfileLocation = path.join(common.rootDir,'Settings.json');
-                await fileMoveIfNedded(settingsFileName,oldfileLocation);           
+                await fileMoveIfNedded(settingsFileName,oldfileLocation);
             } else {
                 common.isDocker = false;
                 settingsFileName = path.join(common.rootDir,'Settings.json');
-            }  
+            }
             common._isDockerChecked = true;
             common.settingsFileName = settingsFileName;
         }
@@ -91,7 +93,7 @@ class Common {
 
     loadSettings() {
         let common = this;
-        return new Promise((resolve, reject) => {        
+        return new Promise((resolve, reject) => {
             common.checkDockerConf().then(() => {
                 return fsp.readFile(common.settingsFileName,"utf8");
             }).then(data => {
@@ -100,13 +102,15 @@ class Common {
                 common.settings =  _.extend({},defaultSettings,settings);
                 console.log("Settings: "+JSON.stringify(common.settings,null,2));
                 resolve();
-            })        
+            })
             .catch(err => {
                 console.error(err);
                 reject(err);
             });
         });
     }
+
+
 
     constructor() {
         let common = this;
@@ -144,7 +148,7 @@ class Common {
             } catch (err) {
                 saveCB.reject(err);
             }
-           
+
         }*/
 
         // initiaze a promise that will after the first init
@@ -154,47 +158,76 @@ class Common {
                 resolve: resolve,
                 reject: reject
             };
-            // do the actual initialization here            
+            // do the actual initialization here
 
-            var loggerName = path.basename(process.argv[1], '.js') + ".log";
-            var exceptionLoggerName = path.basename(process.argv[1], '.js') + "_exceptions.log";
+            common.createIntLogger = function() {
+                var loggerName = path.basename(process.argv[1], '.js') + ".log";
+                    var exceptionLoggerName = path.basename(process.argv[1], '.js') + "_exceptions.log";
 
-            // init logger
-            const myFormat = printf(info => {
-                return `${info.timestamp} [${info.label}] ${info.level}: ${info.message}`;
-                //return info.timestamp + /*' ['+info.label+'] '+*/info.level+': '+info.message;
-            });
-            require('winston-syslog').Syslog;
-            const intLogger = createLogger({
-                format: combine(
-                    timestamp(),
-                    myFormat
-                ),
-                transports: [
-                    new(transports.Console)({
-                        name: 'console',
-                        json: true,
-                        handleExceptions: false,
-                        timestamp: true,
-                        colorize: true
-                    }),
-                    new transports.File({
-                        name: 'file',
-                        filename: common.rootDir + '/log/' + loggerName,
-                        handleExceptions: false,
-                        maxsize: 100 * 1024 * 1024, //100MB
-                        maxFiles: 4,
-                    }),
-                    new transports.Syslog({
+                    // init logger
+                    const myFormat = printf(info => {
+                        return `${info.timestamp} [${info.label}] ${info.level}: ${info.message}`;
+                        //return info.timestamp + /*' ['+info.label+'] '+*/info.level+': '+info.message;
+                    });
+
+
+                    let ourtransports = [
+                        new(transports.Console)({
+                            name: 'console',
+                            json: true,
+                            handleExceptions: false,
+                            timestamp: true,
+                            colorize: true
+                        }),
+                        new transports.File({
+                            name: 'file',
+                            filename: common.rootDir + '/log/' + loggerName,
+                            handleExceptions: false,
+                            maxsize: 100 * 1024 * 1024, //100MB
+                            maxFiles: 4,
+                        })];
+                    let syslogParams = {
                         app_name : "nubogateway",
                         handleExceptions : false,
-                        localhost: null,
-                        protocol: "unix",
-                        path: "/dev/log",
+                        localhost: os.hostname(),
+                        type: "RFC5424",
+                        //protocol: "unix",
+                        //path: "/dev/log",
+                        protocol: 'udp',
+                        host: 'nubo-rsyslog',
+                        port: 5514,
                         format: format.json()
-                    })
-                ],
-            });
+                    };
+                    if (common.settings && common.settings.syslogParams) {
+                        _.extend(syslogParams,common.settings.syslogParams);
+                    } else {
+                        syslogParams.disable = true;
+                    }
+                    if (!syslogParams.disable) {
+                        let Syslog = require('@nubosoftware/winston-syslog').Syslog;
+                        let syslogTransport = new Syslog(syslogParams);
+                        syslogTransport.on('error',err => {
+                            console.error(`Syslog error`,err);
+                            return true;
+                        });
+                        ourtransports.push(syslogTransport);
+                    }
+
+                    common.intLogger = createLogger({
+                        format: combine(
+                            timestamp(),
+                            myFormat
+                        ),
+                        transports: ourtransports,
+                    });
+                    common.intLoggerError = (err) => {
+                        console.log(`Log callback. err: ${err}`);
+                    }
+            }
+
+            common.createIntLogger();
+
+
 
             common.logger = (fileName) => {
                 let name = path.basename(fileName);
@@ -217,7 +250,7 @@ class Common {
                             }
                         }
                         res.message = msg;
-                        intLogger.log(res);
+                        common.intLogger.log(res);
                     },
                     info: (text, obj) => {
                         let res = {
@@ -228,7 +261,7 @@ class Common {
                         if(typeof obj === "object") {
                             res = Object.assign(obj, res);
                         }
-                        intLogger.log(res);
+                        common.intLogger.log(res);
                     },
                     warn: (text, obj) => {
                         let res = {
@@ -239,7 +272,7 @@ class Common {
                         if(typeof obj === "object") {
                             res = Object.assign(obj, res);
                         }
-                        intLogger.log(res);
+                        common.intLogger.log(res);
                     },
                     debug: (text, obj) => {
                         let res = {
@@ -250,11 +283,11 @@ class Common {
                         if(typeof obj === "object") {
                             res = Object.assign(obj, res);
                         }
-                        intLogger.log(res);
+                        common.intLogger.log(res);
                     },
                     log: (obj) => {
                         if(!obj.label) obj.label = name;
-                        intLogger.log(obj);
+                        common.intLogger.log(res);
                     }
                 };
 
@@ -265,6 +298,10 @@ class Common {
 
             // load settings for first time
             common.loadSettings().then(() => {
+                if (common.settings.syslogParams) {
+                    console.log('Re-create logger..');
+                    common.createIntLogger();
+                }
                 // watch settings file
                 fs.watchFile(common.settingsFileName, { persistent: false, interval: 5007 }, function(curr, prev) {
                     commonLogger.info('Settings.json. the current mtime is: ' + curr.mtime);
@@ -307,5 +344,7 @@ class Common {
 }
 
 let common = new Common();
+
+
 
 module.exports = common;

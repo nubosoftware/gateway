@@ -19,7 +19,7 @@
     "underscore": "^1.13.1",
     "unix-dgram": "^2.0.4",
     "winston": "^3.3.3",
-    "winston-syslog": "^2.4.4"
+    "@nubosoftware/winston-syslog": "^2.5.0"
   },
   "devDependencies": {
     "@babel/core": "^7.14.6",
