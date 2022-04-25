@@ -35,8 +35,11 @@ ARG BUILD_DEPENDENCIES="              \
         libvncserver-dev              \
         libwebsockets-dev             \
         libwebp-dev                   \
+        libavcodec-dev                \
+        libavformat-dev               \
+        libavutil-dev                 \
+        libswscale-dev               \
         make"
-
 
 
 # ENV BUILD_DEPS="git autoconf pkg-config libssl-dev libpam0g-dev \
@@ -62,6 +65,7 @@ RUN ${PREFIX_DIR}/bin/build-guacd.sh "$BUILD_DIR" "$PREFIX_DIR"
 # Record the packages of all runtime library dependencies
 RUN ${PREFIX_DIR}/bin/list-dependencies.sh     \
         ${PREFIX_DIR}/sbin/guacd               \
+        ${PREFIX_DIR}/bin/guacenc              \
         ${PREFIX_DIR}/lib/libguac-client-*.so  \
         ${PREFIX_DIR}/lib/freerdp2/*guac*.so   \
         > ${PREFIX_DIR}/DEPENDENCIES
@@ -109,7 +113,10 @@ RUN apt install -y netcat-openbsd     \
         libcairo2                     \
         libssh2-1                     \
         libfreerdp-client2-2          \
-        xfonts-terminus
+        xfonts-terminus               \
+        libavcodec58                  \
+        libavformat58                 \
+        libswscale5
 
 RUN apt install -y $(cat "${PREFIX_DIR}"/DEPENDENCIES)
 

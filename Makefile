@@ -62,6 +62,11 @@ push-hub-latest: push-hub
 	docker tag gateway:$(server_version)-$(server_buildid) nubosoftware/gateway
 	docker push nubosoftware/gateway
 
+push-hub-test:
+	docker build --build-arg dev=TRUE --build-arg BUILD_VER=$(server_version)-$(server_buildid) -f  docker_build/Dockerfile -t gateway:$(server_version)-$(server_buildid) .
+	docker tag gateway:$(server_version)-$(server_buildid) nubosoftware/gateway:test
+	docker push nubosoftware/gateway:test
+
 
 .PHONY: deb default rpm docker
 
