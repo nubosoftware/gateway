@@ -6,6 +6,7 @@ const NetConn = require('./netConn');
 const jwt = require('jsonwebtoken');
 const mgmtCall = require('./mgmtCall');
 const PlatConn = require('./platConn');
+const { Session, getSession } = require('./session');
 const {
     PlayerCmd,
     PlatformCtrlCmd,
@@ -28,18 +29,18 @@ class PlatControl extends NetConn {
         this.runPlatControl();
     }
 
-    static waitForPlatformControl(platformID) {
+    static waitForPlatformControl(platformKey) {
         return new Promise((resolve, reject) => {
             let tries = 0;
             let getPlatformControl = function() {
-                const pc = platformControllers[platformID];
+                const pc = platformControllers[platformKey];
                 if (pc) {
                     resolve(pc);
                 } else if (tries < 10) {
                     tries++;
                     setTimeout(getPlatformControl, 1000);
                 } else {
-                    reject(new Error(`Cannot find platform controller ${platformID}`));
+                    reject(new Error(`Cannot find platform controller ${platformKey}`));
                 }
             }
             getPlatformControl();
@@ -59,10 +60,10 @@ class PlatControl extends NetConn {
             logger.error(`${this.TAG}: Error`, err);
         }
 
-        if (this.mPlatformId) {
-            let pc = platformControllers[this.mPlatformId];
+        if (this.mPlatformKey) {
+            let pc = platformControllers[this.mPlatformKey];
             if (pc == this) {
-                delete platformControllers[this.mPlatformId];
+                delete platformControllers[this.mPlatformKey];
             }
         }
         if (!this.socket.destroyed) {
@@ -77,21 +78,30 @@ class PlatControl extends NetConn {
 
     async setPlatformId() {
         let cmd = await this.readInt();
-        this.log("setPlatformId. cmd: " + cmd);
-        if (cmd == PlatformCtrlCmd.newPlatform) {
+        let dockerPlatform = Common.settings.dockerPlatform;
+        this.log(`setPlatformId. cmd: ${cmd}, dockerPlatform: ${dockerPlatform}`);
+
+        if (cmd == PlatformCtrlCmd.newPlatform && !dockerPlatform) {
             this.mPlatformId = await this.readInt();
+            this.mPlatformKey = this.mPlatformId;
+        } else if (cmd == PlatformCtrlCmd.newPlatformDocker && dockerPlatform) {
+            this.mPlatformId = await this.readInt();
+            this.mUserId = await this.readInt();
+            this.mSessionId = await this.readString();
+            this.mPlatformKey = this.mSessionId;
         } else {
             throw new Error(`Invalid setPlatformId command: ${cmd}`);
         }
 
-        let pc = platformControllers[this.mPlatformId];
+
+        let pc = platformControllers[this.mPlatformKey];
         if (pc != null && pc != this) {
-            this.log("Found old platform controller with the same if (${this.mPlatformId}), close old controller.");
+            this.log(`Found old platform controller with the same key (${this.mPlatformKey}), close old controller.`);
             await pc.closePlatControl();
         }
 
-        platformControllers[this.mPlatformId] = this;
-        this.log("setPlatformId. mPlatformId: " + this.mPlatformId);
+        platformControllers[this.mPlatformKey] = this;
+        this.log("setPlatformId. mPlatformKey: " + this.mPlatformKey);
     }
 
 

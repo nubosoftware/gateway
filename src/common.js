@@ -28,7 +28,8 @@ const defaultSettings = {
     "tlsOptions": {
         "keyfile": "../cert/server.key",
         "certfile": "../cert/server.cert"
-    }
+    },
+    "dockerPlatform": false,
 };
 
 

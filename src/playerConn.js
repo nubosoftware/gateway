@@ -566,7 +566,7 @@ class PlayerConn extends NetConn {
             await this.writeToClientOld(8, DrawCmd.drawPlayerLoginAck,
                 buf, true);
         }
-        session.associatePlayerWithPlatformConnectionsAndSyncApps(this);
+        await session.associatePlayerWithPlatformConnectionsAndSyncApps(this);
 
 
         session.mPlatformController.writeQ.push(async() => {

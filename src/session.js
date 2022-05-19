@@ -28,6 +28,7 @@ class Session extends EventEmitter {
         this.mPlatConnections = [];
         sessions[sessionID] = this;
         this.mValidateStartTime = null;
+        this.clientQ = [];
     }
 
     log(msg) {
@@ -84,8 +85,9 @@ class Session extends EventEmitter {
             //this.log("Session found. Params: " + JSON.stringify(this.sessionParams, null, 2));
             this.mUserId = this.sessionParams.localid;
             this.mPlatformId = this.sessionParams.platid;
+            this.mPlatformKey = (Common.settings.dockerPlatform ? this.sessionID : this.mPlatformId);
             this.email = this.sessionParams.email;
-            this.mPlatformController = await PlatControl.waitForPlatformControl(this.mPlatformId);
+            this.mPlatformController = await PlatControl.waitForPlatformControl(this.mPlatformKey);
             this.validSession = true;
         } else {
 
@@ -202,7 +204,7 @@ class Session extends EventEmitter {
      * @param {PlayerConn} playerConnection
      */
     async associatePlayerToPlatformController(playerConnection) {
-        let platControl = await PlatControl.waitForPlatformControl(playerConnection.mPlatformId);
+        let platControl = await PlatControl.waitForPlatformControl(this.mPlatformKey);
         this.mPlatformController = platControl;
     }
 
@@ -211,7 +213,7 @@ class Session extends EventEmitter {
      * @param {PlayerConn} playerConnection
      */
     async associatePlatConnToPlatformController(platConnection) {
-        let platControl = await PlatControl.waitForPlatformControl(platConnection.mPlatformId);
+        let platControl = await PlatControl.waitForPlatformControl(this.mPlatformKey);
         if (this.mPlatformController != platControl) {
             this.mPlatformController = platControl;
             // return true so caller know we changed mPlatformController
@@ -239,10 +241,54 @@ class Session extends EventEmitter {
     }
 
     /**
+     * Write command to client (main connection). if client is not connected write it log queue
+     * @param {*} bytesCount
+     * @param {*} processId
+     * @param {*} cmdcode
+     * @param {*} wndId
+     * @param {*} buff
+     * @param {*} flushBuffer
+     */
+    async writeToClient(bytesCount, processId, cmdcode, wndId, buff,isFlush) {
+        let playerConn = this.mPlayerConnection;
+        if (playerConn) {
+            await playerConn.writeToClient(bytesCount, processId, cmdcode, wndId, buff, isFlush);
+            return true;
+        } else {
+            this.clientQ.push({
+                bytesCount,
+                processId,
+                cmdcode,
+                wndId,
+                buff,
+                isFlush
+            });
+            return false;
+        }
+    }
+
+    /**
+     * Send all pending commands to client after client connects
+     */
+    async sendClientQ() {
+        let playerConn = this.mPlayerConnection;
+        let arr = this.clientQ;
+        if (playerConn && arr.length > 0) {
+            this.clientQ = [];
+            this.log(`Sending ${arr.length} pending commands`);
+            for (const item of arr) {
+                await playerConn.writeToClient(item.bytesCount, item.processId, item.cmdcode, item.wndId, item.buff, item.isFlush);
+            }
+
+        }
+    }
+
+    /**
      *
      * @param {PlayerConn} playerConnection
      */
-    associatePlayerWithPlatformConnectionsAndSyncApps(playerConnection) {
+    async associatePlayerWithPlatformConnectionsAndSyncApps(playerConnection) {
+        await this.sendClientQ();
         const keys = Object.keys(this.mPlatConnections);
         //this.log(`associatePlayerWithPlatformConnectionsAndSyncApps.. mPlatConnections: ${keys.length}`);
         for (const hash of keys) {
@@ -253,6 +299,7 @@ class Session extends EventEmitter {
             }
             platConn.sendSync();
         }
+
     }
 }
 

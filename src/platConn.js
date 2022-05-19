@@ -151,22 +151,26 @@ class PlatConn extends NetConn {
         if (bytesCount > CMD_HEADER_SIZE) {
             data = await this.readChunk(bytesCount - CMD_HEADER_SIZE);
         }
-        this.sendCmd(bytesCount, processId, cmdcode, wndId, true, data);
+        await this.sendCmd(bytesCount, processId, cmdcode, wndId, true, data);
     }
 
-    sendCmd(bytesCount, processId, cmdcode, wndId, isPlatformCmd, data) {
+    async sendCmd(bytesCount, processId, cmdcode, wndId, isPlatformCmd, data) {
         let wroteData = false;
         let playerConn = null;
         if (this.mSession) {
-            playerConn = this.mSession.mPlayerConnection;
+            let isFlush = (cmdcode > DrawCmd.IMMEDIATE_COMMAND || cmdcode == DrawCmd.drawPlayerLoginAck || cmdcode < 0 || cmdcode == DrawCmd.openGLVideoPacket);
+            wroteData = await this.mSession.writeToClient(bytesCount,processId,cmdcode,wndId,data,isFlush);
+            /*playerConn = this.mSession.mPlayerConnection;
             if (playerConn) {
                 let isFlush = (cmdcode > DrawCmd.IMMEDIATE_COMMAND || cmdcode == DrawCmd.drawPlayerLoginAck || cmdcode < 0 || cmdcode == DrawCmd.openGLVideoPacket);
                 playerConn.writeToClient(bytesCount, processId, cmdcode, wndId, data, isFlush);
                 wroteData = true;
-            }
+            } else {
+
+            }*/
         }
         if (!wroteData) {
-            this.log(`Cannot write data as player connection is not available. this.mSession: ${this.mSession}, cmdcode: ${( cmdcode)}`);
+            this.log(`Cannot write data as player connection is not available. this.mSession: ${this.mSessionId}, cmdcode: ${( cmdcode)}`);
         }
     }
 

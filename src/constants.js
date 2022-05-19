@@ -98,6 +98,7 @@ const PlatformCtrlCmd = Object.freeze({
     notificationOpen: 23, // From player
     notificationCancel: 21, // From player
     audioParams: 22,
+    newPlatformDocker: 200, //new docker platform
 });
 const PlatformCtrlCmdSize = Object.freeze({
     userLoginWithService: 10703, // From player
