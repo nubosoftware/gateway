@@ -494,10 +494,9 @@ class PlayerConn extends NetConn {
 
         this.setCompressStream(true, true);
 
-        await this.handlePlayerLoginOnPlatform(session);
-
-
         await session.validateSession(0, true);
+
+        await this.handlePlayerLoginOnPlatform(session);
 
         await session.sendSyncToPlatformApps();
 
@@ -622,8 +621,15 @@ class PlayerConn extends NetConn {
                 // ////////
 
 
-                await session.mPlatformController.writeInt(this.mNuboFlags);
+                let flags = this.mNuboFlags;
+                if (session.mRecordingName && Common.settings.dockerPlatform) {
+                    flags = (flags | 16);
+                }
+                await session.mPlatformController.writeInt(flags);
                 await session.mPlatformController.writeString(this.mHideAppPackageName);
+                if (session.mRecordingName && Common.settings.dockerPlatform) {
+                    await session.mPlatformController.writeString(session.mRecordingName);
+                }
             } catch(err) {
                 this.log(`handlePlayerLoginOnPlatform. writeQ error: ${err}`);
             }

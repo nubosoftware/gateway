@@ -71,7 +71,7 @@ class Session extends EventEmitter {
             this.mValidateStartTime = null;
             return false;
         }
-        if (doNotRefreshData) {
+        if (doNotRefreshData && suspend != 0) {
             // we use this only to change suspend values
             return false;
         }
@@ -83,11 +83,17 @@ class Session extends EventEmitter {
             this.validSession = true;
             this.sessionParams = response.data.session;
             //this.log("Session found. Params: " + JSON.stringify(this.sessionParams, null, 2));
-            this.mUserId = this.sessionParams.localid;
-            this.mPlatformId = this.sessionParams.platid;
-            this.mPlatformKey = (Common.settings.dockerPlatform ? this.sessionID : this.mPlatformId);
-            this.email = this.sessionParams.email;
-            this.mPlatformController = await PlatControl.waitForPlatformControl(this.mPlatformKey);
+            if (suspend == 0 && this.sessionParams.recording_name) {
+                this.mRecordingName = this.sessionParams.recording_name;
+                this.log(`Recording name: ${this.mRecordingName}`);
+            }
+            if (!doNotRefreshData) {
+                this.mUserId = this.sessionParams.localid;
+                this.mPlatformId = this.sessionParams.platid;
+                this.mPlatformKey = (Common.settings.dockerPlatform ? this.sessionID : this.mPlatformId);
+                this.email = this.sessionParams.email;
+                this.mPlatformController = await PlatControl.waitForPlatformControl(this.mPlatformKey);
+            }
             this.validSession = true;
         } else {
 
