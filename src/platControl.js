@@ -6,7 +6,7 @@ const NetConn = require('./netConn');
 const jwt = require('jsonwebtoken');
 const mgmtCall = require('./mgmtCall');
 const PlatConn = require('./platConn');
-const { Session, getSession } = require('./session');
+
 const {
     PlayerCmd,
     PlatformCtrlCmd,
@@ -142,6 +142,22 @@ class PlatControl extends NetConn {
                         playerConn.sendAudioParams(playbackStarted, playbackStreamType, recordStarted, recordInputSource, speakerPhoneOn);
                     } else {
                         this.log("Cannot send audio params to player. Player connection not found for userId: " + userId);
+                    }
+                }
+                break;
+            case PlatformCtrlCmd.biometricCommand:
+                {
+                    const size = await this.readInt();
+                    this.log("biometricCommand. size: "+size);
+                    const chunk = await this.readChunk(size);
+                    const { getSession } = require('./session');
+                    const session = getSession(this.mSessionId);
+                    const playerConn = session.mPlayerConnection;
+                    if (playerConn != null) {
+                        this.log("Sending biometric command to player");
+                        playerConn.sendCmdWithBuffer(-1,PlatformCtrlCmd.biometricCommand,-1,chunk);
+                    } else {
+                        this.log("Cannot biometric command to player. Player connection not found for mSessionId: " + this.mSessionId);
                     }
                 }
                 break;

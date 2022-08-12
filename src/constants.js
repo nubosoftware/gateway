@@ -80,6 +80,8 @@ const PlayerCmd = Object.freeze({
 
     // Determine the required video bitrate
     setVideoFPS: 102,
+
+    biometricCommand: -119,
 });
 
 const PlatformCtrlCmd = Object.freeze({
@@ -99,6 +101,7 @@ const PlatformCtrlCmd = Object.freeze({
     notificationCancel: 21, // From player
     audioParams: 22,
     newPlatformDocker: 200, //new docker platform
+    biometricCommand: -119, // biometric command
 });
 const PlatformCtrlCmdSize = Object.freeze({
     userLoginWithService: 10703, // From player
@@ -141,7 +144,7 @@ const DrawCmd = Object.freeze({
     mediaCodecCmd: -125,
     audioPacket: -121,
     openGLVideoPacket: -120,
-
+    biometricCommand: -119,
     setDirtyRect: 1,
     drawColor1: 2,
     saveLayer: 3,

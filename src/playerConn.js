@@ -226,6 +226,9 @@ class PlayerConn extends NetConn {
                 let doNothing = await pc.readInt();
                 await pc.sendCmdToPlatformController(PlatformCtrlCmd.homeEvent, bytesCount - 4, PlatformCtrlCmdSize.homeEvent);
                 break;
+            case PlayerCmd.biometricCommand:
+                await pc.sendCmdToPlatformController(PlatformCtrlCmd.biometricCommand, bytesCount , bytesCount);
+                break;
             default:
                 pc.log("Illegal cmdCode in handlePlayer2PlatformCommands. Disconnecting user. CMD=" + iPlayerCmd);
                 this.mStopThread = true;
@@ -234,8 +237,8 @@ class PlayerConn extends NetConn {
     }
 
     async sendCmdToPlatformController(cmdCode, bytesCount, controllerBytesCount) {
-        //this.log(`sendCmdToPlatformController. cmdCode: ${cmdCode}, bytesCount: ${bytesCount}`);
         const headerSize = UPL_CONTROLLER_CMD_HEADER_SIZE + SESSION_ID_SIZE + ADDITION_TO_STRING_LENGTH;
+        // this.log(`sendCmdToPlatformController. cmdCode: ${cmdCode}, bytesCount: ${bytesCount}, controllerBytesCount: ${controllerBytesCount}, headerSize: ${headerSize}`);
         let data = null;
         if (bytesCount - headerSize > 0) {
             data = await this.readChunk(bytesCount - headerSize);
@@ -862,6 +865,12 @@ class PlayerConn extends NetConn {
         const dataSize = CMD_HEADER_SIZE + buf.length;
         await this.writeToClient(dataSize, -1,
             DrawCmd.audioCmd, -1, buf, true);
+    }
+
+    async sendCmdWithBuffer(processId, cmdcode, wndId,buf) {
+        const dataSize = CMD_HEADER_SIZE + buf.length;
+        await this.writeToClient(dataSize, processId,
+            cmdcode, wndId, buf, true);
     }
 
     async handleNetworkTestUpl() {
