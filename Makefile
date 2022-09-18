@@ -48,6 +48,11 @@ push-nubo: docker
 	docker tag gateway:$(server_version)-$(server_buildid) docker.nubosoftware.com:5000/nubo/gateway:$(server_version)
 	docker push docker.nubosoftware.com:5000/nubo/gateway:$(server_version)
 
+push-nubo-test:
+	docker build --build-arg dev=TRUE --build-arg BUILD_VER=$(server_version)-$(server_buildid) -f  docker_build/Dockerfile -t gateway:$(server_version)-$(server_buildid) .
+	docker tag gateway:$(server_version)-$(server_buildid) docker.nubosoftware.com:5000/nubo/gateway:test
+	docker push docker.nubosoftware.com:5000/nubo/gateway:test
+
 push-nubo-latest: push-nubo
 	docker tag gateway:$(server_version)-$(server_buildid) docker.nubosoftware.com:5000/nubo/gateway
 	docker push docker.nubosoftware.com:5000/nubo/gateway

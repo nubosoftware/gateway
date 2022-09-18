@@ -477,7 +477,8 @@ class PlayerConn extends NetConn {
             return;
         }
         this.mSession = session;
-        session.addPlayerConnection(this);
+        // session.addPlayerConnection(this);
+
         let token = jwt.sign({ sub: session.email }, this.mSessionId, { algorithm: 'HS384' });
         if (this.mPlayerToken && this.mPlayerToken != token) {
             delete playerConnectionsByTokens[this.mPlayerToken];
@@ -500,6 +501,9 @@ class PlayerConn extends NetConn {
         await session.validateSession(0, true);
 
         await this.handlePlayerLoginOnPlatform(session);
+
+        //move to here
+        session.addPlayerConnection(this);
 
         await session.sendSyncToPlatformApps();
 
@@ -855,7 +859,7 @@ class PlayerConn extends NetConn {
      */
     async sendAudioParams(playbackStarted, playbackStreamType, recordStarted,
         recordInputSource, speakerPhoneOn) {
-
+        // this.log(`sendAudioParams...`);
         let buf = Buffer.alloc((4 * 2) + 3);
         buf.writeInt8(playbackStarted ? 1 : 0);
         buf.writeInt32BE(playbackStreamType, 1);
@@ -982,6 +986,8 @@ class PlayerConn extends NetConn {
      * @param {Buffer} args
      */
     async writeToClient(bytesCount, processId, cmdcode, wndId, buff, flushBuffer) {
+
+        // this.log(`writeToClient. cmdcode: ${cmdcode} `);
 
         let offset = CMD_HEADER_SIZE;
         const data = Buffer.allocUnsafe(bytesCount);

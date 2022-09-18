@@ -29,6 +29,7 @@ class Session extends EventEmitter {
         sessions[sessionID] = this;
         this.mValidateStartTime = null;
         this.clientQ = [];
+        this.validSession = false;
     }
 
     log(msg) {
@@ -52,7 +53,7 @@ class Session extends EventEmitter {
                     await this.sleep(100);
                     cnt++;
                     if (!this.mValidateStartTime) {
-                        //this.log(`validateSession. Finish waiting for session ${this.sessionID}, validSession: ${this.validSession}`);
+                        this.log(`validateSession. Finish waiting for session ${this.sessionID}, validSession: ${this.validSession}`);
                         return this.validSession;
                     }
                 }
@@ -96,7 +97,7 @@ class Session extends EventEmitter {
             }
             this.validSession = true;
         } else {
-
+            this.log("validateSession. response: " + JSON.stringify(response.data, null, 2));
             this.validSession = false;
         }
         return this.validSession;

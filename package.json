@@ -11,7 +11,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "axios": "^0.21.1",
+    "axios": "^0.26.0",
     "jsonwebtoken": "^8.5.1",
     "promise-duplex": "^6.0.0",
     "promise-socket": "^7.0.0",

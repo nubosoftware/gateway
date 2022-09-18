@@ -14,7 +14,7 @@ class NetService {
         this.port = port;
         this.tlsOptions = tlsOptions;
         this.connClass = connClass;
-        this.TAG = `${this.serverType}_${this.port}`;
+        this.TAG = `${this.port}`;
         if (tlsOptions) {
             //logger.info(`${this.TAG}: tlsOptions: ${JSON.stringify(tlsOptions,null,2)}`);
             this.server = tls.createServer(tlsOptions);
@@ -23,6 +23,7 @@ class NetService {
             this.server = net.createServer();
             this.serverType = "tcp";
         }
+        this.TAG = `${this.serverType}_${this.port}`;
 
 
 
