@@ -30,6 +30,7 @@ const defaultSettings = {
         "certfile": "../cert/server.cert"
     },
     "dockerPlatform": false,
+    "gatewayTTL": 240,
 };
 
 

@@ -41,6 +41,26 @@ async function loadSecureContext() {
     }
 }
 
+function attachUnregisterOnExit(idx) {
+    var updateGWTTL = async function() {
+        const url = "/redisGateway/unregisterGateway?idx=" + idx;
+        try {
+            let response = await mgmtCall.get({
+                url,
+            });
+            if (response.data.status == GWStatusCode.OK) {
+                logger.info("Gateway " + idx + " unregistered");
+            } else {
+                logger.error(`Cannot unregister gateway. status: ${response.data.status}, msg: ${response.data.msg}`);
+            }
+        } catch (err) {
+            logger.error(`Cannot unregister gateway. err: ${err}`);
+        }
+    }
+
+    Common.exitJobs.push(updateGWTTL);
+}
+
 async function main() {
 
     try {
@@ -75,10 +95,11 @@ async function main() {
             await platformConnService.listen();
         }
 
+        let gwIdx;
         if (Common.settings.playerPort && Common.settings.playerPort > 0) {
             let playerService = new NetService(Common.settings.playerPort, PlayerConn);
             await playerService.listen();
-            await registerGateway(playerService, false);
+            gwIdx = await registerGateway(playerService, false);
         } else if (Common.settings.sslPlayerPort && Common.settings.sslPlayerPort > 0) {
             let tlsOptions = //Common.settings.tlsOptions;
             {
@@ -89,11 +110,11 @@ async function main() {
             };
             let playerService = new NetService(Common.settings.sslPlayerPort, PlayerConn, tlsOptions);
             await playerService.listen();
-            await registerGateway(playerService, true);
+            gwIdx = await registerGateway(playerService, true);
         } else if (Common.settings.guacPort && Common.settings.guacPort > 0) {
             logger.info(`Guacd listen on port ${Common.settings.guacPort}`);
             guac.startGuacd(Common.settings.guacPort);
-            await registerGateway({port: Common.settings.guacPort}, false);
+            gwIdx = await registerGateway({port: Common.settings.guacPort}, false);
         } else {
             throw new Error("Not found any client service to listen.");
         }
@@ -106,7 +127,7 @@ async function main() {
             let playerRTPSocket = new PlayerRTPSocket(Common.settings.playerRTPPort);
         }
 
-
+        attachUnregisterOnExit(gwIdx);
 
         process.on('SIGINT', function() {
             logger.info("Gateway caught SIGINT signal");
@@ -205,7 +226,7 @@ async function sleep(ms) {
 async function updateGWTTL(idx,service,isSsl) {
     const data = Common.settings;
     let isSuccess = false;
-    const url = "/redisGateway/updateGatewayTtl?idx=" + idx + "&ttl=240&internal_ip=" +
+    const url = "/redisGateway/updateGatewayTtl?idx=" + idx + "&ttl=" + data.gatewayTTL + "&internal_ip=" +
         data.internal_ip;
     try {
         let response = await mgmtCall.get({

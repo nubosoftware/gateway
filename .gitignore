@@ -7,5 +7,6 @@ node_modules
 rpmbuild/RPMS/
 rpmbuild/SRPMS/
 debbuild/
+dist/
 package-lock.json
 
