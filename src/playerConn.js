@@ -122,6 +122,7 @@ class PlayerConn extends NetConn {
             }
         } else {
             iPlayerCmd = await pc.readInt();
+            // this.log(`handlePlayer2PlatformCommands. this.mIsReadBytesCount : ${this.mIsReadBytesCount}. iPlayerCmd: ${iPlayerCmd}`);
         }
         //this.log(`handlePlayer2PlatformCommands. iPlayerCmd: ${iPlayerCmd}, bytesCount: ${bytesCount}`);
         if (iPlayerCmd != PlayerCmd.playerLogin && iPlayerCmd != PlayerCmd.nuboTestSocket && iPlayerCmd != PlayerCmd.channelLogin) {
@@ -882,7 +883,14 @@ class PlayerConn extends NetConn {
     }
 
     async handleTestSocketData() {
-
+        let loginToken = await this.readString();
+        let playerCmdIndex  = await this.readInt();
+        let sentTime = await this.readLong();
+        this.log(`handleTestSocketData. loginToken: ${loginToken}, playerCmdIndex: ${playerCmdIndex}, sentTime: ${sentTime}`);
+        let buf = Buffer.alloc(4 + 8);
+        buf.writeInt32BE(playerCmdIndex, 0);
+        buf.writeBigInt64BE(sentTime,4);
+        await this.sendCmdWithBuffer(-1,DrawCmd.nuboTestSocketAck,-1,buf);
     }
 
     sendNuboGLStartStop(isStart) {
@@ -1003,7 +1011,8 @@ class PlayerConn extends NetConn {
                 cmdcode == DrawCmd.drawBitmap8 ||
                 cmdcode == DrawCmd.ninePatchDraw ||
                 cmdcode == DrawCmd.openGLVideoPacket ||
-                cmdcode == DrawCmd.networkTestDnl)
+                cmdcode == DrawCmd.networkTestDnl ||
+                cmdcode == DrawCmd.nuboTestSocketAck)
             /*||
                        data.length > COMPRESSION_BUFFER_SIZE*/
         ) {
