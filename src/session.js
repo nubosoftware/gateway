@@ -25,7 +25,7 @@ class Session extends EventEmitter {
         this.sessionID = sessionID;
         this.TAG = `session_${sessionID}`;
         this.mPlayerChannels = {};
-        this.mPlatConnections = [];
+        this.mPlatConnections = {};
         sessions[sessionID] = this;
         this.mValidateStartTime = null;
         this.clientQ = [];
@@ -185,8 +185,8 @@ class Session extends EventEmitter {
     }
 
     checkRemoveSession() {
-        if (this.mPlayerConnection === null && this.mPlatConnections.length === 0 && Object.keys(this.mPlayerChannels).length === 0) {
-            this.log(`Removing session object mPlatConnections: ${this.mPlatConnections.length}, mPlayerChannels: ${Object.keys(this.mPlayerChannels).length}`);
+        if (this.mPlayerConnection === null && Object.keys(this.mPlatConnections).length === 0 && Object.keys(this.mPlayerChannels).length === 0) {
+            this.log(`Removing session object mPlatConnections: ${Object.keys(this.mPlatConnections).length}, mPlayerChannels: ${Object.keys(this.mPlayerChannels).length}`);
             delete sessions[this.sessionID];
         } else {
             //this.log(`checkRemoveSession mPlatConnections: ${Object.keys(this.mPlatConnections).length}, mPlayerChannels: ${Object.keys(this.mPlayerChannels).length}, this.mPlayerConnection: ${this.mPlayerConnection}`);
