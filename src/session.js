@@ -6,6 +6,9 @@ const mgmtCall = require('./mgmtCall');
 const PlayerConn = require('./playerConn');
 const PlatControl = require('./platControl');
 const PlatConn = require('./platConn');
+// const GuacdConn = require('./guacdConn');
+// const RDPConn = require('./rdpConn');
+const { NetService, NetConn } = require('node-tcp');
 const EventEmitter = require('events');
 const sessions = {};
 
@@ -307,6 +310,67 @@ class Session extends EventEmitter {
         }
 
     }
+
+    // /**
+    //  *
+    //  * @param {RDPConn} rdpConn
+    //  */
+    // addRdpConn(rdpConn) {
+    //     this.mRdpConn = rdpConn;
+    //     if (this.mGuacdConn) {
+    //         this.mGuacdConn.mEvent.notify();
+    //     }
+    // }
+
+
+    // removeRdpConn(rdpConn) {
+    //     if (this.mRdpConn = rdpConn) {
+    //         this.log(`createRdpSession. removeRdpConn`);
+    //         this.mRdpConn = null;
+    //         if (this.mGuacdConn) {
+    //             this.mGuacdConn.closeConn();
+    //         }
+    //     }
+    // }
+
+    // /**
+    //  *
+    //  * @param {RDPConn} guacdConn
+    //  */
+    // addGuacdConn(guacdConn) {
+    //     this.mGuacdConn = guacdConn;
+    //     if (this.mRdpConn) {
+    //         this.mRdpConn.mEvent.notify();
+    //     }
+    // }
+
+    // removeGuacdConn(guacdConn) {
+    //     if (this.mGuacdConn = guacdConn) {
+    //         this.log(`createRdpSession. removeGuacdConn`);
+    //         this.mGuacdConn = null;
+    //         if (this.mRdpConn) {
+    //             this.mRdpConn.closeConn();
+    //         }
+    //     }
+    // }
+
+    // async createRdpSession() {
+    //     this.log(`createRdpSession. sessionID: ${this.sessionID}`);
+    //     let port = 0;
+    //     if (this.sessionID == "test") {
+    //         port = 38917;
+    //     }
+    //     this.mGuacdService = new NetService(port , GuacdConn,/*Common.tlsOptions*/null,{
+    //         session: this
+    //     });
+
+
+    //     await this.mGuacdService.listen();
+
+    //     this.log(`createRdpSession. listen to guacd connections. port: ${this.mGuacdService.port}`);
+
+    //     this.mGuacdPort = this.mGuacdService.port;
+    // }
 }
 
 /**

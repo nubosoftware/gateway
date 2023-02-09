@@ -2,7 +2,8 @@
 
 const Common = require('./common.js');
 const logger = Common.logger(__filename);
-const NetConn = require('./netConn');
+// const { NetConn} = require('node-tcp');
+const { NetConn} = require('node-tcp');
 
 const jwt = require('jsonwebtoken');
 const mgmtCall = require('./mgmtCall');
@@ -29,16 +30,20 @@ class PlatConn extends NetConn {
         this.runPlatConnn();
     }
 
+    info(msg) {
+        logger.info(`${this.TAG}: ${msg}`);
+    }
+
     async runPlatConnn() {
         this.mStopThread = false;
         this.socket.setTimeout(60000 * 60 * 24); // default socket timeout is one day for platforms
         try {
             this.mPlatformId = await this.readInt();
-            this.mSessionId = await this.readString();
+            this.mSessionId = await this.readStringOld();
             this.mProcessId = await this.readInt();
             this.mChannelType = await this.readInt();
             this.mChannelIdx = await this.readInt();
-            this.log("Adding platform connection. mProcessId: " + this.mProcessId + ", mSessionId: " + this.mSessionId + ", mChannelType: " + this.mChannelType + ", mChannelIdx: " + this.mChannelIdx);
+            this.info("Adding platform connection. mProcessId: " + this.mProcessId + ", mSessionId: " + this.mSessionId + ", mChannelType: " + this.mChannelType + ", mChannelIdx: " + this.mChannelIdx);
             await this.addPlatformConnection();
             while (!this.mStopThread) {
                 await this.drawCmdPlatform2Client();
@@ -80,18 +85,18 @@ class PlatConn extends NetConn {
             let changed = await session.associatePlatConnToPlatformController(this);
             if (changed) {
                 // if value changed - we will re-validate  session
-                this.log(`addPlatformConnection. platform controller changed. re-validate session`);
+                this.info(`addPlatformConnection. platform controller changed. re-validate session`);
                 await session.validateSession(2);
             }
         }
         if (!session || !session.validSession) {
-            this.log(`addPlatformConnection. Faild to validate session. Aborting connection. mSessionId: ${this.mSessionId}`);
+            this.info(`addPlatformConnection. Faild to validate session. Aborting connection. mSessionId: ${this.mSessionId}`);
             this.mStopThread = true;
             return;
         }
         this.mSession = session;
         if (session.mPlatformController == null) {
-            this.log("addPlatformConnection. cannot find platformController." + ", userId=" + this.mSessionId +
+            this.info("addPlatformConnection. cannot find platformController." + ", userId=" + this.mSessionId +
                 ", platformId=" + this.mPlatformId);
             this.mStopThread = true;
             return;
@@ -105,9 +110,9 @@ class PlatConn extends NetConn {
             //pc.log(`Write ack to platfrom. mSessionId: ${this.mSessionId}`);
             try {
                 await this.writeInt(PlayerCmd.platformProcessConnected);
-                await this.writeString(this.mSessionId);
+                await this.writeStringOld(this.mSessionId);
             } catch(err) {
-                this.log(`addPlatformConnection. writeQ error: ${err}`);
+                this.info(`addPlatformConnection. writeQ error: ${err}`);
             }
         });
 
@@ -149,7 +154,7 @@ class PlatConn extends NetConn {
         }
         let data = null;
         if (bytesCount > CMD_HEADER_SIZE) {
-            data = await this.readChunk(bytesCount - CMD_HEADER_SIZE);
+            data = await this.readBuffer(bytesCount - CMD_HEADER_SIZE);
         }
         await this.sendCmd(bytesCount, processId, cmdcode, wndId, true, data);
     }
@@ -170,7 +175,7 @@ class PlatConn extends NetConn {
             }*/
         }
         if (!wroteData) {
-            this.log(`Cannot write data as player connection is not available. this.mSession: ${this.mSessionId}, cmdcode: ${( cmdcode)}`);
+            this.info(`Cannot write data as player connection is not available. this.mSession: ${this.mSessionId}, cmdcode: ${( cmdcode)}`);
         }
     }
 
@@ -180,14 +185,14 @@ class PlatConn extends NetConn {
             this.writeQ.push(async() => {
                 try {
                     await this.writeInt(PlayerCmd.initProcessFPS);
-                    await this.writeString(this.mSessionId);
+                    await this.writeStringOld(this.mSessionId);
                     await this.writeInt(PlayerCmd.netQ);
                 } catch(err) {
-                    this.log(`sendInitProcessFPS. writeQ error: ${err}`);
+                    this.info(`sendInitProcessFPS. writeQ error: ${err}`);
                 }
             });
         } else {
-            this.log("sendInitProcessFPS.. this.mSession is null!!");
+            this.info("sendInitProcessFPS.. this.mSession is null!!");
         }
     }
 
@@ -197,9 +202,9 @@ class PlatConn extends NetConn {
             this.writeQ.push(async() => {
                 try {
                     await this.writeInt(PlayerCmd.sync);
-                    await this.writeString(this.mSessionId);
+                    await this.writeStringOld(this.mSessionId);
                 } catch(err) {
-                    this.log(`sendSync. writeQ error: ${err}`);
+                    this.info(`sendSync. writeQ error: ${err}`);
                 }
             });
         }
@@ -211,9 +216,9 @@ class PlatConn extends NetConn {
             this.writeQ.push(async() => {
                 try {
                     await this.writeInt(PlayerCmd.killUserApps);
-                    await this.writeString(this.mSessionId);
+                    await this.writeStringOld(this.mSessionId);
                 } catch(err) {
-                    this.log(`killUserApps. writeQ error: ${err}`);
+                    this.info(`killUserApps. writeQ error: ${err}`);
                 }
             });
         }

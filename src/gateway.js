@@ -1,11 +1,13 @@
 "use strict";
 
 const Common = require('./common.js');
-const NetService = require('./netService');
+// const NetService = require('./netService');
+const { NetService, NetConn } = require('node-tcp');
 let secureCtx;
 const PlayerConn = require('./playerConn');
 const PlatControl = require('./platControl');
 const PlatConn = require('./platConn');
+// const RDPConn = require('./rdpConn');
 const { PlatformRTPService } = require('./platformRTPService');
 const { PlayerRTPSocket } = require('./playerRTPSocket');
 const mgmtCall = require('./mgmtCall');
@@ -35,9 +37,23 @@ async function loadSecureContext() {
                 Common.settings.tlsOptions.ca = await readFile(Common.settings.tlsOptions.cafile);
             }
             secureCtx = tls.createSecureContext(Common.settings.tlsOptions);
+            watchCertFile();
         } catch (err) {
             logger.error(`Unable to create TLS context: ${err}`,err);
         }
+    }
+}
+
+async function watchCertFile() {
+    const watch = require('fs').promises.watch;
+    try {
+        const watcher = watch(Common.settings.tlsOptions.certfile);
+        for await (const event of watcher) {
+            logger.info(`Certification file changed: ${JSON.stringify(event)}`);
+            loadSecureContext()
+        }
+    } catch (err) {
+        logger.info(`Error in watchCertFile: ${err}`,err);
     }
 }
 
@@ -84,6 +100,13 @@ async function main() {
         }
         Common.settingsReload.then(reloadSettings);
         await loadSecureContext();
+        let tlsOptions = {
+            SNICallback: (servername, cb) => {
+                logger.info(`SNICallback. servername: ${servername}`)
+                cb(null, secureCtx);
+            }
+        };
+        Common.tlsOptions = tlsOptions;
 
         if (Common.settings.platformControlPort) {
             let platformControlService = new NetService(Common.settings.platformControlPort , PlatControl);
@@ -95,19 +118,24 @@ async function main() {
             await platformConnService.listen();
         }
 
+        // if (Common.settings.rdpPort) {
+
+        //     // tempory create "test" session
+        //     const { getSession } = require('./session');
+        //     const session = getSession("test");
+        //     await session.createRdpSession();
+
+        //     let rdpTlsOptions = (Common.settings.rdpTLS ? tlsOptions : null);
+        //     let rdpConnService = new NetService(Common.settings.rdpPort, RDPConn,rdpTlsOptions,null);
+        //     await rdpConnService.listen();
+        // }
+
         let gwIdx;
         if (Common.settings.playerPort && Common.settings.playerPort > 0) {
             let playerService = new NetService(Common.settings.playerPort, PlayerConn);
             await playerService.listen();
             gwIdx = await registerGateway(playerService, false);
         } else if (Common.settings.sslPlayerPort && Common.settings.sslPlayerPort > 0) {
-            let tlsOptions = //Common.settings.tlsOptions;
-            {
-                SNICallback: (servername, cb) => {
-                    logger.info(`SNICallback. servername: ${servername}`)
-                    cb(null, secureCtx);
-                }
-            };
             let playerService = new NetService(Common.settings.sslPlayerPort, PlayerConn, tlsOptions);
             await playerService.listen();
             gwIdx = await registerGateway(playerService, true);

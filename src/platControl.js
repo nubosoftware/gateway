@@ -2,7 +2,8 @@
 
 const Common = require('./common.js');
 const logger = Common.logger(__filename);
-const NetConn = require('./netConn');
+// const { NetConn} = require('node-tcp');
+const { NetConn } = require('node-tcp');
 const jwt = require('jsonwebtoken');
 const mgmtCall = require('./mgmtCall');
 const PlatConn = require('./platConn');
@@ -27,6 +28,10 @@ class PlatControl extends NetConn {
 
         this.mPlatformConnections = [];
         this.runPlatControl();
+    }
+
+    info(msg) {
+        logger.info(`${this.TAG}: ${msg}`);
     }
 
     static waitForPlatformControl(platformKey) {
@@ -73,13 +78,13 @@ class PlatControl extends NetConn {
 
             }
         }
-        logger.info(`${this.TAG}: finished.`);
+        this.info(`finished.`);
     }
 
     async setPlatformId() {
         let cmd = await this.readInt();
         let dockerPlatform = Common.settings.dockerPlatform;
-        this.log(`setPlatformId. cmd: ${cmd}, dockerPlatform: ${dockerPlatform}`);
+        this.info(`setPlatformId. cmd: ${cmd}, dockerPlatform: ${dockerPlatform}`);
 
         if (cmd == PlatformCtrlCmd.newPlatform && !dockerPlatform) {
             this.mPlatformId = await this.readInt();
@@ -87,7 +92,7 @@ class PlatControl extends NetConn {
         } else if (cmd == PlatformCtrlCmd.newPlatformDocker && dockerPlatform) {
             this.mPlatformId = await this.readInt();
             this.mUserId = await this.readInt();
-            this.mSessionId = await this.readString();
+            this.mSessionId = await this.readStringOld();
             this.mPlatformKey = this.mSessionId;
         } else {
             throw new Error(`Invalid setPlatformId command: ${cmd}`);
@@ -96,12 +101,12 @@ class PlatControl extends NetConn {
 
         let pc = platformControllers[this.mPlatformKey];
         if (pc != null && pc != this) {
-            this.log(`Found old platform controller with the same key (${this.mPlatformKey}), close old controller.`);
+            this.info(`Found old platform controller with the same key (${this.mPlatformKey}), close old controller.`);
             await pc.closePlatControl();
         }
 
         platformControllers[this.mPlatformKey] = this;
-        this.log("setPlatformId. mPlatformKey: " + this.mPlatformKey);
+        this.info("setPlatformId. mPlatformKey: " + this.mPlatformKey);
     }
 
 
@@ -118,7 +123,7 @@ class PlatControl extends NetConn {
                             await this.writeInt(PlatformCtrlCmd.roundTripDataAck);
                             await this.writeLong(millis);
                         } catch(err) {
-                            this.log(`roundTripData. writeQ error: ${err}`);
+                            this.info(`roundTripData. writeQ error: ${err}`);
                         }
                     });
                     //await this.flush();
@@ -138,26 +143,26 @@ class PlatControl extends NetConn {
                     const playerConn = PlayerConn.getPlayerConnByPlatUser(platformUserKey);
 
                     if (playerConn != null) {
-                        this.log("Sending audio params to player");
+                        this.info("Sending audio params to player");
                         playerConn.sendAudioParams(playbackStarted, playbackStreamType, recordStarted, recordInputSource, speakerPhoneOn);
                     } else {
-                        this.log("Cannot send audio params to player. Player connection not found for userId: " + userId);
+                        this.info("Cannot send audio params to player. Player connection not found for userId: " + userId);
                     }
                 }
                 break;
             case PlatformCtrlCmd.biometricCommand:
                 {
                     const size = await this.readInt();
-                    this.log("biometricCommand. size: "+size);
-                    const chunk = await this.readChunk(size);
+                    this.info("biometricCommand. size: "+size);
+                    const chunk = await this.readBuffer(size);
                     const { getSession } = require('./session');
                     const session = getSession(this.mSessionId);
                     const playerConn = session.mPlayerConnection;
                     if (playerConn != null) {
-                        this.log("Sending biometric command to player");
+                        this.info("Sending biometric command to player");
                         playerConn.sendCmdWithBuffer(-1,PlatformCtrlCmd.biometricCommand,-1,chunk);
                     } else {
-                        this.log("Cannot biometric command to player. Player connection not found for mSessionId: " + this.mSessionId);
+                        this.info("Cannot biometric command to player. Player connection not found for mSessionId: " + this.mSessionId);
                     }
                 }
                 break;

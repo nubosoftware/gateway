@@ -2,7 +2,7 @@
 
 const Common = require('./common.js');
 const logger = Common.logger(__filename);
-const NetConn = require('./netConn');
+const { NetConn} = require('node-tcp');
 const { Session, getSession } = require('./session');
 const jwt = require('jsonwebtoken');
 const mgmtCall = require('./mgmtCall');
@@ -63,9 +63,14 @@ class PlayerConn extends NetConn {
         this.runPlayerConn();
     }
 
+    info(msg) {
+        logger.info(`${this.TAG}: ${msg}`);
+    }
+
+
 
     async runPlayerConn() {
-        this.log(`runPlayerConn`);
+        this.info(`runPlayerConn`);
         this.socket.setTimeout(60000); // default socket timeout is one minute for players
 
         this.mStopThread = false;
@@ -126,7 +131,7 @@ class PlayerConn extends NetConn {
         }
         //this.log(`handlePlayer2PlatformCommands. iPlayerCmd: ${iPlayerCmd}, bytesCount: ${bytesCount}`);
         if (iPlayerCmd != PlayerCmd.playerLogin && iPlayerCmd != PlayerCmd.nuboTestSocket && iPlayerCmd != PlayerCmd.channelLogin) {
-            sessionId = await pc.readString();
+            sessionId = await pc.readStringOld();
             //this.log(`handlePlayer2PlatformCommands. sessionId: ${sessionId}`);
             isValidSessionId = pc.isValidSessionId(sessionId);
         }
@@ -231,7 +236,7 @@ class PlayerConn extends NetConn {
                 await pc.sendCmdToPlatformController(PlatformCtrlCmd.biometricCommand, bytesCount , bytesCount);
                 break;
             default:
-                pc.log("Illegal cmdCode in handlePlayer2PlatformCommands. Disconnecting user. CMD=" + iPlayerCmd);
+                pc.info("Illegal cmdCode in handlePlayer2PlatformCommands. Disconnecting user. CMD=" + iPlayerCmd);
                 this.mStopThread = true;
                 break;
         }
@@ -242,7 +247,7 @@ class PlayerConn extends NetConn {
         // this.log(`sendCmdToPlatformController. cmdCode: ${cmdCode}, bytesCount: ${bytesCount}, controllerBytesCount: ${controllerBytesCount}, headerSize: ${headerSize}`);
         let data = null;
         if (bytesCount - headerSize > 0) {
-            data = await this.readChunk(bytesCount - headerSize);
+            data = await this.readBuffer(bytesCount - headerSize);
         }
         const pc = this.mSession.mPlatformController;
         if (pc != null) {
@@ -250,13 +255,13 @@ class PlayerConn extends NetConn {
                 try {
                     await pc.writeInt(controllerBytesCount);
                     await pc.writeInt(cmdCode);
-                    await pc.writeString(this.mSessionId);
+                    await pc.writeStringOld(this.mSessionId);
                     await pc.writeInt(this.mUserId);
                     if (data) {
-                        await pc.writeChunk(data);
+                        await pc.writeBuffer(data);
                     }
                 } catch(err) {
-                    this.log(`sendCmdToPlatformController. writeQ error: ${err}`);
+                    this.info(`sendCmdToPlatformController. writeQ error: ${err}`);
                 }
             });
 
@@ -282,7 +287,7 @@ class PlayerConn extends NetConn {
 
         let data = null;
         if (bytesCount - headerSize > 0) {
-            data = await this.readChunk(bytesCount - headerSize);
+            data = await this.readBuffer(bytesCount - headerSize);
         }
 
         //this.log(`sending command with ${data.length} bytes data to process ${processId}`);
@@ -291,16 +296,16 @@ class PlayerConn extends NetConn {
             pc.writeQ.push(async() => {
                 try {
                     await pc.writeInt(cmdCode);
-                    await pc.writeString(this.mSessionId);
+                    await pc.writeStringOld(this.mSessionId);
                     if (data != null) {
-                        await pc.writeChunk(data);
+                        await pc.writeBuffer(data);
                     }
                 } catch(err) {
-                    this.log(`sendCmdToApplication. writeQ error: ${err}`);
+                    this.info(`sendCmdToApplication. writeQ error: ${err}`);
                 }
             });
         } else {
-            this.log("Try send command " + cmdCode + " to unavalible pid " + processId);
+            this.info("Try send command " + cmdCode + " to unavalible pid " + processId);
         }
 
 
@@ -310,7 +315,7 @@ class PlayerConn extends NetConn {
 
     async handleChannelLogin(bytesCount) {
         this.mPlayerId = await this.readInt();
-        this.mSessionId = await this.readString();
+        this.mSessionId = await this.readStringOld();
         this.mChannelProcess = await this.readInt();
         this.mChannelType = await this.readInt();
         this.mChannelIdx = await this.readInt();
@@ -320,11 +325,11 @@ class PlayerConn extends NetConn {
         this.mIsIOSClient = ((this.mRomClientType & ROM_TYPE_MASK) == ROM_TYPE_IOS);
         //this.mClientWriter.setClientType(mRomClientType);
         this.mRomSdkVersion = await this.readInt();
-        this.mRomBuildVersion = await this.readString();
-        this.mNuboClientVersion = await this.readString();
-        this.mNuboProtocolVersion = await this.readString();
+        this.mRomBuildVersion = await this.readStringOld();
+        this.mNuboClientVersion = await this.readStringOld();
+        this.mNuboProtocolVersion = await this.readStringOld();
         this.mNuboVersionCode = await this.readInt();
-        this.log(" handleChannelLogin. mChannelIdx: " + this.mChannelIdx + ", mChannelType: " + this.mChannelType);
+        this.info(" handleChannelLogin. mChannelIdx: " + this.mChannelIdx + ", mChannelType: " + this.mChannelType);
         if (this.mChannelType == 0) {
             logger.error(`${this.TAG}: Invalid channel type for channel login: ${this.mChannelType}`);
             this.mStopThread = true;
@@ -339,7 +344,7 @@ class PlayerConn extends NetConn {
         }
         if (!session || !session.validSession) {
             this.replyErrorOnLoginToPlayer(GWStatusCode.errIllegalSessionID);
-            this.log("PlayerConnection::handleChannelLogin cannot get valid data from managment server");
+            this.info("PlayerConnection::handleChannelLogin cannot get valid data from managment server");
             this.mStopThread = true;
             return;
         }
@@ -347,7 +352,7 @@ class PlayerConn extends NetConn {
         if (this.mChannelType == 4) {
             this.rtpAudioUpInetAddress = session.sessionParams.platform_ip;
             this.rtpAudioUpPort = session.sessionParams.audioStreamPort;
-            this.log("PlayerConnection::handlePlayerLoginOnPlatform. rtpAudioUpInetAddress: " + this.rtpAudioUpInetAddress + ", rtpAudioUpPort: " + this.rtpAudioUpPort);
+            this.info("PlayerConnection::handlePlayerLoginOnPlatform. rtpAudioUpInetAddress: " + this.rtpAudioUpInetAddress + ", rtpAudioUpPort: " + this.rtpAudioUpPort);
         }
         if (this.mChannelType == 2) {
             if (session.sessionParams.nuboglListenPort && session.sessionParams.nuboglListenHost) {
@@ -357,7 +362,7 @@ class PlayerConn extends NetConn {
 
         session.addPlayerConnection(this);
 
-        this.setCompressStream(true, true);
+        this.setCompression(true, true);
 
         let buf = Buffer.alloc(5);
         buf.writeInt32BE(GWStatusCode.OK);
@@ -370,11 +375,11 @@ class PlayerConn extends NetConn {
     }
 
     async handlePlayerLogin(bytesCount) {
-        this.log(`handlePlayerLogin`);
+        this.info(`handlePlayerLogin`);
         this.mPlayerId = await this.readInt();
         this.mChannelType = 0;
         this.mChannelIdx = 0;
-        this.mSessionId = await this.readString();
+        this.mSessionId = await this.readStringOld();
         this.mWidth = await this.readInt();
         this.mHeight = await this.readInt();
         this.mDensityDpi = await this.readInt();
@@ -392,25 +397,25 @@ class PlayerConn extends NetConn {
         this.mIsIOSClient = ((this.mRomClientType & ROM_TYPE_MASK) == ROM_TYPE_IOS);
         //mClientWriter.setClientType(mRomClientType);
         this.mRomSdkVersion = await this.readInt();
-        this.mRomBuildVersion = await this.readString();
-        this.mNuboClientVersion = await this.readString();
-        this.mNuboProtocolVersion = await this.readString();
+        this.mRomBuildVersion = await this.readStringOld();
+        this.mNuboClientVersion = await this.readStringOld();
+        this.mNuboProtocolVersion = await this.readStringOld();
         this.mNuboVersionCode = await this.readInt();
-        this.log(`handlePlayerLogin. this.mNuboVersionCode: ${this.mNuboVersionCode}, mIsAndroidClient: ${this.mIsAndroidClient}`);
+        this.info(`handlePlayerLogin. this.mNuboVersionCode: ${this.mNuboVersionCode}, mIsAndroidClient: ${this.mIsAndroidClient}`);
         //mClientWriter.setNuboVersionCode(mNuboVersionCode);
         this.mAllocatedCacheSize = await this.readInt();
         this.mPendingIntentType = await this.readInt();
         //this.log(`handlePlayerLogin. before camera. this.mPendingIntentType: ${this.mPendingIntentType}`);
         if (this.mIsWebClient || this.mIsAndroidClient) {
-            this.mDataIntent = await this.readString();
+            this.mDataIntent = await this.readStringOld();
         }
 
-        this.log(`handlePlayerLogin. before camera. this.mIsWebClient: ${this.mIsWebClient}`);
+        this.info(`handlePlayerLogin. before camera. this.mIsWebClient: ${this.mIsWebClient}`);
         // Handle camera info as part of login process
         if (!this.mIsWebClient) {
             //this.log(`handlePlayerLogin. read cameras...`);
             this.mNumberOfCameras = await this.readInt();
-            this.log("mNumberOfCameras: " + this.mNumberOfCameras);
+            this.info("mNumberOfCameras: " + this.mNumberOfCameras);
 
             let isValidNumOfCameras = true;
 
@@ -420,7 +425,7 @@ class PlayerConn extends NetConn {
 
 
             if (!isValidNumOfCameras) {
-                this.log("handlePlayerLogin. Illegal number of cameras: " + mNumberOfCameras +
+                this.info("handlePlayerLogin. Illegal number of cameras: " + mNumberOfCameras +
                     ". Disconnect user: " + this);
                 this.mStopThread = true;
                 return;
@@ -432,7 +437,7 @@ class PlayerConn extends NetConn {
                     const cameraInfo = {};
                     cameraInfo.facing = await this.readInt();
                     cameraInfo.orientation = await this.readInt();
-                    cameraInfo.parameters = await this.readString();
+                    cameraInfo.parameters = await this.readStringOld();
                     this.mDeviceCamerasInfo.push(cameraInfo);
                 }
             }
@@ -442,14 +447,14 @@ class PlayerConn extends NetConn {
             this.mNetworkConnectionQuality = await this.readInt();
         }
 
-        this.mDeviceId = await this.readString();
+        this.mDeviceId = await this.readStringOld();
 
 
 
         this.mNuboFlags = await this.readInt();
-        this.mHideAppPackageName = await this.readString();
+        this.mHideAppPackageName = await this.readStringOld();
 
-        this.log(`handlePlayerLogin. read all params`);
+        this.info(`handlePlayerLogin. read all params`);
 
         this.mIsReadBytesCount = true;
 
@@ -461,7 +466,7 @@ class PlayerConn extends NetConn {
         // ////////
 
         if (!this.mSessionId || this.mSessionId == "") {
-            this.log("Illegal sessionid in handlePlayerLogin sessionId: " + mSessionId);
+            this.info("Illegal sessionid in handlePlayerLogin sessionId: " + mSessionId);
             this.mStopThread = true;
             return;
         }
@@ -473,7 +478,7 @@ class PlayerConn extends NetConn {
         }
         if (!session || !session.validSession) {
             this.replyErrorOnLoginToPlayer(GWStatusCode.errIllegalSessionID);
-            this.log("PlayerConnection::handlePlayerLoginOnPlatform cannot get valid data from managment server");
+            this.info("PlayerConnection::handlePlayerLoginOnPlatform cannot get valid data from managment server");
             this.mStopThread = true;
             return;
         }
@@ -497,7 +502,7 @@ class PlayerConn extends NetConn {
         this.rtpAudioUpInetAddress = session.sessionParams.platform_ip;
         this.rtpAudioUpPort = session.sessionParams.audioStreamPort;
 
-        this.setCompressStream(true, true);
+        this.setCompression(true, true);
 
         await session.validateSession(0, true);
 
@@ -526,16 +531,16 @@ class PlayerConn extends NetConn {
                     this.bwStats = this.mSession.mPlayerConnection.bwStats;
                 }
                 if (!this.bwStats) {
-                    this.log(`Cannot find bwStats in main player connection!`);
+                    this.info(`Cannot find bwStats in main player connection!`);
                 }
             }
             if (this.bwStats) {
                 if (this.outBytes) {
-                    this.log(`Add initial ${this.outBytes} out bytes`);
+                    this.info(`Add initial ${this.outBytes} out bytes`);
                     this.bwStats.addOutBytes(this.outBytes);
                 }
                 if (this.inBytes) {
-                    this.log(`Add initial ${this.inBytes} in bytes`);
+                    this.info(`Add initial ${this.inBytes} in bytes`);
                     this.bwStats.addInBytes(this.inBytes);
                 }
             }
@@ -550,17 +555,17 @@ class PlayerConn extends NetConn {
         this.mUserId = session.mUserId;
         this.email = session.email;
         this.mPlatformId = session.mPlatformId;
-        this.log(`handlePlayerLoginOnPlatform. mPlatformId: ${this.mPlatformId}`);
+        this.info(`handlePlayerLoginOnPlatform. mPlatformId: ${this.mPlatformId}`);
         await session.associatePlayerToPlatformController(this);
         if (session.mPlatformController == null) {
-            this.log("PlayerConnection::handlePlayerLoginOnPlatform cannot find platform");
+            this.info("PlayerConnection::handlePlayerLoginOnPlatform cannot find platform");
             //PlatformControllerFailThreshold.getInstance().incPlatformFails(this.mPlatformId);
             this.mStopThread = true;
             return;
         }
         const platformUserKey = ((this.mPlatformId & 0xFFFF) << 16) | (this.mUserId & 0xFFFF);
         playerConnectionByPlatformUser[platformUserKey] = this;
-        this.log(`handlePlayerLoginOnPlatform. send login ack: ${(this.mIsAndroidClient || this.mIsIOSClient)}`);
+        this.info(`handlePlayerLoginOnPlatform. send login ack: ${(this.mIsAndroidClient || this.mIsIOSClient)}`);
         if (this.mIsAndroidClient || this.mIsIOSClient) {
             let buf = Buffer.alloc(5);
             buf.writeInt32BE(GWStatusCode.OK);
@@ -578,7 +583,7 @@ class PlayerConn extends NetConn {
 
         session.mPlatformController.writeQ.push(async() => {
             try {
-                this.log("Send login to mPlatformController..");
+                this.info("Send login to mPlatformController..");
                 if (this.mNumberOfCameras > 0 && this.mNumberOfCameras < MAX_NUMBER_OF_CAMERAS) {
                     await session.mPlatformController.writeInt(PlatformCtrlCmdSize.userLoginWithService);
                 } else {
@@ -586,7 +591,7 @@ class PlayerConn extends NetConn {
                 }
 
                 await session.mPlatformController.writeInt(PlatformCtrlCmd.userLogin);
-                await session.mPlatformController.writeString(this.mSessionId);
+                await session.mPlatformController.writeStringOld(this.mSessionId);
                 await session.mPlatformController.writeInt(this.mUserId);
                 // EB@NUBO: Whenever a user logs in, the width, height,
                 // density and scale are sent
@@ -602,14 +607,14 @@ class PlayerConn extends NetConn {
                 await session.mPlatformController.writeInt(this.mNavBarWidth);
                 await session.mPlatformController.writeInt(this.mRomClientType);
                 await session.mPlatformController.writeInt(this.mRomSdkVersion);
-                await session.mPlatformController.writeString(this.mRomBuildVersion);
-                await session.mPlatformController.writeString(this.mNuboClientVersion);
-                await session.mPlatformController.writeString(this.mNuboProtocolVersion)
+                await session.mPlatformController.writeStringOld(this.mRomBuildVersion);
+                await session.mPlatformController.writeStringOld(this.mNuboClientVersion);
+                await session.mPlatformController.writeStringOld(this.mNuboProtocolVersion)
                 await session.mPlatformController.writeInt(this.mNuboVersionCode);
                 await session.mPlatformController.writeInt(this.mAllocatedCacheSize);
                 await session.mPlatformController.writeInt(this.mPendingIntentType);
                 if (this.mIsWebClient || this.mIsAndroidClient) {
-                    await session.mPlatformController.writeString(this.mDataIntent);
+                    await session.mPlatformController.writeStringOld(this.mDataIntent);
                 }
                 // Handle camera info
                 if (this.mNumberOfCameras != -1) {
@@ -618,7 +623,7 @@ class PlayerConn extends NetConn {
                         for (let i = 0; i < this.mNumberOfCameras; ++i) {
                             await session.mPlatformController.writeInt(this.mDeviceCamerasInfo[i].facing);
                             await session.mPlatformController.writeInt(this.mDeviceCamerasInfo[i].orientation);
-                            await session.mPlatformController.writeString(this.mDeviceCamerasInfo[i].parameters);
+                            await session.mPlatformController.writeStringOld(this.mDeviceCamerasInfo[i].parameters);
                         }
                     }
                 }
@@ -634,12 +639,12 @@ class PlayerConn extends NetConn {
                     flags = (flags | 16);
                 }
                 await session.mPlatformController.writeInt(flags);
-                await session.mPlatformController.writeString(this.mHideAppPackageName);
+                await session.mPlatformController.writeStringOld(this.mHideAppPackageName);
                 if (session.mRecordingName && Common.settings.dockerPlatform) {
-                    await session.mPlatformController.writeString(session.mRecordingName);
+                    await session.mPlatformController.writeStringOld(session.mRecordingName);
                 }
             } catch(err) {
-                this.log(`handlePlayerLoginOnPlatform. writeQ error: ${err}`);
+                this.info(`handlePlayerLoginOnPlatform. writeQ error: ${err}`);
             }
         });
 
@@ -648,7 +653,7 @@ class PlayerConn extends NetConn {
 
     async replyErrorOnLoginToPlayer(statusCode) {
         if (statusCode >= 0) {
-            this.log("replyErrorOnLoginToPlayer. Illegal statuCode: " + statusCode);
+            this.info("replyErrorOnLoginToPlayer. Illegal statuCode: " + statusCode);
             return;
         }
 
@@ -709,13 +714,13 @@ class PlayerConn extends NetConn {
      */
     validateJwtToken(jwtToken) {
         const secret = Buffer.from(this.mSessionId, "hex");
-        this.log(`Checking JWT. secret len: ${secret.length}`);
+        this.info(`Checking JWT. secret len: ${secret.length}`);
         try {
             let decoded = jwt.verify(jwtToken, secret, { subject: this.email });
-            this.log(`Token validated. decoded: ${JSON.stringify(decoded,null,2)}`);
+            this.info(`Token validated. decoded: ${JSON.stringify(decoded,null,2)}`);
             return true;
         } catch (err) {
-            this.log(`Invalid token. err: ${err}`);
+            this.info(`Invalid token. err: ${err}`);
             return false;
         }
     }
@@ -816,7 +821,7 @@ class PlayerConn extends NetConn {
 
 
         if (!isValidSessionId) {
-            this.log("handleRoundTripData. Invalid session id. Ignoring command!!!");
+            this.info("handleRoundTripData. Invalid session id. Ignoring command!!!");
             return;
         }
 
@@ -883,10 +888,10 @@ class PlayerConn extends NetConn {
     }
 
     async handleTestSocketData() {
-        let loginToken = await this.readString();
+        let loginToken = await this.readStringOld();
         let playerCmdIndex  = await this.readInt();
         let sentTime = await this.readLong();
-        this.log(`handleTestSocketData. loginToken: ${loginToken}, playerCmdIndex: ${playerCmdIndex}, sentTime: ${sentTime}`);
+        this.info(`handleTestSocketData. loginToken: ${loginToken}, playerCmdIndex: ${playerCmdIndex}, sentTime: ${sentTime}`);
         let buf = Buffer.alloc(4 + 8);
         buf.writeInt32BE(playerCmdIndex, 0);
         buf.writeBigInt64BE(sentTime,4);
@@ -895,16 +900,16 @@ class PlayerConn extends NetConn {
 
     sendNuboGLStartStop(isStart) {
         if (isStart) {
-            this.log(`Start nubo gl stream. host :${this.mSession.sessionParams.nuboglListenHost}, port: ${this.mSession.sessionParams.nuboglListenPort}`);
+            this.info(`Start nubo gl stream. host :${this.mSession.sessionParams.nuboglListenHost}, port: ${this.mSession.sessionParams.nuboglListenPort}`);
         } else {
-            this.log(`Stop nubo gl stream..`);
+            this.info(`Stop nubo gl stream..`);
         }
         const platformRTPService = require('./platformRTPService').PlatformRTPService.getInstance();
         if (platformRTPService) {
             let buf = Buffer.allocUnsafe(1);
             buf.writeUInt8(isStart ? 1 : 2);
             platformRTPService.sendPacket(buf, this.mSession.sessionParams.nuboglListenHost, this.mSession.sessionParams.nuboglListenPort);
-            this.log(`sendPacket to nubo gl: ${isStart ? 1 : 2}`);
+            this.info(`sendPacket to nubo gl: ${isStart ? 1 : 2}`);
         }
     }
 
@@ -947,7 +952,7 @@ class PlayerConn extends NetConn {
                 //this.log(`Send opengl packrt with SN ${rtpPacket.sequenceNumber}`);
                 // if this is opengl channel - send the video
                 if (!this.mSession.sessionParams.nuboglListenHost) {
-                    this.log(`nuboglListenHost is not set. Change it to: ${rinfo.address}`);
+                    this.info(`nuboglListenHost is not set. Change it to: ${rinfo.address}`);
                     this.mSession.sessionParams.nuboglListenHost = rinfo.address;
                     //this.sendNuboGLStartStop(true);
                 }
@@ -1022,12 +1027,12 @@ class PlayerConn extends NetConn {
         //this.log(`Write chunk. cmdcode: ${cmdcode}, size: ${bytesCount}, writeUnCompressed: ${writeUnCompressed}`);
         this.writeQ.push(async() => {
             try {
-                await this.writeChunk(data, writeUnCompressed);
+                await this.writeBuffer(data, writeUnCompressed);
                 if (flushBuffer) {
-                    await this.compressAndSend();
+                    await this.flush();
                 }
             } catch(err) {
-                this.log(`writeToClient. writeQ error: ${err}`);
+                this.info(`writeToClient. writeQ error: ${err}`);
             }
         });
     }
@@ -1047,12 +1052,12 @@ class PlayerConn extends NetConn {
         }
         this.writeQ.push(async() => {
             try {
-                await this.writeChunk(data, false);
+                await this.writeBuffer(data, false);
                 if (flushBuffer) {
-                    await this.compressAndSend();
+                    await this.flush();
                 }
             } catch(err) {
-                this.log(`writeToClientOld. writeQ error: ${err}`);
+                this.info(`writeToClientOld. writeQ error: ${err}`);
             }
         });
     }

@@ -84,10 +84,12 @@ const PlayerCmd = Object.freeze({
     biometricCommand: -119,
 });
 
+
 const PlatformCtrlCmd = Object.freeze({
-    userLogin: -1, // From player
-    //        switchUser: 1, // From player
-    newPlatform: 2, // From platform
+    userLogin: -1,           // From player
+    //
+    switchUser: 1,           // From player
+    newPlatform: 2,          // From platform
     removeProcess: 3,
     changeOrientation: 4, // From player
     goToSleep: 5, // From player

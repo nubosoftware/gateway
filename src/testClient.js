@@ -1,7 +1,7 @@
 "use strict";
 
 const Common = require('./common.js');
-const NetConn = require('./netConn');
+const { NetConn} = require('node-tcp');
 const net = require('net');
 
 
