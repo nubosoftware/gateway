@@ -155,6 +155,22 @@ class Session extends EventEmitter {
     }
 
     /**
+     * Get player connection by processID, channelType, channelIdxssss
+     * @param {*} processID
+     * @param {*} channelType
+     * @param {*} channelIdx
+     * @returns
+     */
+    getPlayerConnection(processID, channelType, channelIdx) {
+        if (channelType == 0 || channelType == undefined) {
+            return this.mPlayerConnection;
+        } else {
+            const hash = this.getConnectionHash(processID, channelType, channelIdx);
+            return this.mPlayerChannels[hash];
+        }
+    }
+
+    /**
      *
      * @param {PlatConn} platConn
      */
@@ -258,20 +274,29 @@ class Session extends EventEmitter {
      * @param {*} buff
      * @param {*} flushBuffer
      */
-    async writeToClient(bytesCount, processId, cmdcode, wndId, buff,isFlush) {
-        let playerConn = this.mPlayerConnection;
+    async writeToClient(bytesCount, processId, cmdcode, wndId, buff,isFlush, channelType, channelIdx) {
+
+        let playerConn = this.getPlayerConnection(processId,channelType,channelIdx); //this.mPlayerConnection;
+        if (!playerConn) {
+            this.log(`writeToClient. processId: ${processId}, channelType: ${channelType}, channelIdx: ${channelIdx}, playerConn not found. Using main connection`);
+            playerConn = this.mPlayerConnection;
+        }
         if (playerConn) {
             await playerConn.writeToClient(bytesCount, processId, cmdcode, wndId, buff, isFlush);
             return true;
         } else {
-            this.clientQ.push({
-                bytesCount,
-                processId,
-                cmdcode,
-                wndId,
-                buff,
-                isFlush
-            });
+            if (channelType == 0) {
+                this.clientQ.push({
+                    bytesCount,
+                    processId,
+                    cmdcode,
+                    wndId,
+                    buff,
+                    isFlush
+                });
+            } else {
+                this.log(`writeToClient. processId: ${processId}, channelType: ${channelType}, channelIdx: ${channelIdx}, playerConn not found`);
+            }
             return false;
         }
     }

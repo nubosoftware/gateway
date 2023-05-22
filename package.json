@@ -15,7 +15,7 @@
     "await-notify": "^1.0.1",
     "axios": "^0.26.0",
     "jsonwebtoken": "^8.5.1",
-    "node-tcp": "^1.0.9",
+    "node-tcp": "^1.0.12",
     "promise-duplex": "^6.0.0",
     "promise-socket": "^7.0.0",
     "sequential-task-queue": "^1.2.1",

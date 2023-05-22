@@ -164,7 +164,7 @@ class PlatConn extends NetConn {
         let playerConn = null;
         if (this.mSession) {
             let isFlush = (cmdcode > DrawCmd.IMMEDIATE_COMMAND || cmdcode == DrawCmd.drawPlayerLoginAck || cmdcode < 0 || cmdcode == DrawCmd.openGLVideoPacket);
-            wroteData = await this.mSession.writeToClient(bytesCount,processId,cmdcode,wndId,data,isFlush);
+            wroteData = await this.mSession.writeToClient(bytesCount,processId,cmdcode,wndId,data,isFlush, this.mChannelType, this.mChannelIdx);
             /*playerConn = this.mSession.mPlayerConnection;
             if (playerConn) {
                 let isFlush = (cmdcode > DrawCmd.IMMEDIATE_COMMAND || cmdcode == DrawCmd.drawPlayerLoginAck || cmdcode < 0 || cmdcode == DrawCmd.openGLVideoPacket);
