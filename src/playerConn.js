@@ -69,6 +69,15 @@ class PlayerConn extends NetConn {
 
 
 
+    /**
+     * Disconnects the player connection
+     * @param {*} reason
+     */
+    disconnect(reason) {
+        logger.error(`${this.TAG}: Disconnect play connection. reason ${reason}`);
+        this.mStopThread = true;
+    }
+
     async runPlayerConn() {
         this.info(`runPlayerConn`);
         this.socket.setTimeout(60000); // default socket timeout is one minute for players

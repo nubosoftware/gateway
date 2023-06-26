@@ -199,7 +199,12 @@ class Session extends EventEmitter {
      */
     removePlatformController(platControl) {
         if (this.mPlatformController == platControl) {
+            this.log(`Removing platform controller`);
             this.mPlatformController = null;
+            // Disconnect main player connection
+            if (this.mPlayerConnection) {
+                this.mPlayerConnection.disconnect("Platform controller disconnected");
+            }
         }
     }
 

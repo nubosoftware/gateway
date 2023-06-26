@@ -65,10 +65,19 @@ class PlatControl extends NetConn {
             logger.error(`${this.TAG}: Error`, err);
         }
 
+        // remove platform controller from the conroller map
         if (this.mPlatformKey) {
             let pc = platformControllers[this.mPlatformKey];
             if (pc == this) {
                 delete platformControllers[this.mPlatformKey];
+            }
+        }
+        if (this.mSessionId) {
+            logger.error(`${this.TAG}: Closing platform control for session ${this.mSessionId}`);
+            const { getSession } = require('./session');
+            const session = getSession(this.mSessionId);
+            if (session) {
+                session.removePlatformController(this);
             }
         }
         if (!this.socket.destroyed) {
