@@ -364,7 +364,8 @@ class PlayerConn extends NetConn {
             this.info("PlayerConnection::handlePlayerLoginOnPlatform. rtpAudioUpInetAddress: " + this.rtpAudioUpInetAddress + ", rtpAudioUpPort: " + this.rtpAudioUpPort);
         }
         if (this.mChannelType == 2) {
-            if (session.sessionParams.nuboglListenPort && session.sessionParams.nuboglListenHost) {
+            this.info(`handleChannelLogin nuboglListenPort: ${session.nuboglListenPort}, nuboglListenHost: ${session.nuboglListenHost}`);
+            if (session.nuboglListenPort && session.nuboglListenHost) {
                 this.sendNuboGLStartStop(true);
             }
         }
@@ -574,7 +575,7 @@ class PlayerConn extends NetConn {
         }
         const platformUserKey = ((this.mPlatformId & 0xFFFF) << 16) | (this.mUserId & 0xFFFF);
         playerConnectionByPlatformUser[platformUserKey] = this;
-        this.info(`handlePlayerLoginOnPlatform. send login ack: ${(this.mIsAndroidClient || this.mIsIOSClient)}`);
+        this.info(`handlePlayerLoginOnPlatform. send login ack: ${(this.mIsAndroidClient || this.mIsIOSClient)}, platformUserKey: ${platformUserKey}`);
         if (this.mIsAndroidClient || this.mIsIOSClient) {
             let buf = Buffer.alloc(5);
             buf.writeInt32BE(GWStatusCode.OK);
@@ -685,7 +686,7 @@ class PlayerConn extends NetConn {
             await this.mSession.validateSession(1, true);
         }
         if (this.mChannelType == 2) {
-            if (this.mSession.sessionParams.nuboglListenPort && this.mSession.sessionParams.nuboglListenHost) {
+            if (this.mSession.nuboglListenPort && this.mSession.nuboglListenHost) {
                 this.sendNuboGLStartStop(false);
             }
         }
@@ -909,7 +910,7 @@ class PlayerConn extends NetConn {
 
     sendNuboGLStartStop(isStart) {
         if (isStart) {
-            this.info(`Start nubo gl stream. host :${this.mSession.sessionParams.nuboglListenHost}, port: ${this.mSession.sessionParams.nuboglListenPort}`);
+            this.info(`Start nubo gl stream. host :${this.mSession.nuboglListenHost}, port: ${this.mSession.nuboglListenPort}`);
         } else {
             this.info(`Stop nubo gl stream..`);
         }
@@ -917,7 +918,7 @@ class PlayerConn extends NetConn {
         if (platformRTPService) {
             let buf = Buffer.allocUnsafe(1);
             buf.writeUInt8(isStart ? 1 : 2);
-            platformRTPService.sendPacket(buf, this.mSession.sessionParams.nuboglListenHost, this.mSession.sessionParams.nuboglListenPort);
+            platformRTPService.sendPacket(buf, this.mSession.nuboglListenHost, this.mSession.nuboglListenPort);
             this.info(`sendPacket to nubo gl: ${isStart ? 1 : 2}`);
         }
     }
@@ -972,12 +973,12 @@ class PlayerConn extends NetConn {
 
                 this.writeToClient(bytesCount, -1,
                     DrawCmd.openGLVideoPacket, -1, buf, true);
-                //this.log("Sending open gl packet to channel");
+                this.log("Sending open gl packet to channel");
 
             } else if (this.mSession != null && this.mSession.mOpenGLChannelPlayerConnection != null && this.mSession.mOpenGLChannelPlayerConnection != this) {
                 this.mSession.mOpenGLChannelPlayerConnection.sendMediaPacket(rtpPacket, rinfo);
             } else {
-                //this.log("sendMediaPacket. open gl channel not found");
+                this.log("sendMediaPacket. open gl channel not found");
             }
         }
     }

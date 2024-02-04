@@ -86,16 +86,21 @@ class Session extends EventEmitter {
         if (response.data.status == OK) {
             this.validSession = true;
             this.sessionParams = response.data.session;
-            //this.log("Session found. Params: " + JSON.stringify(this.sessionParams, null, 2));
+            this.log("Session found. doNotRefreshData: "+doNotRefreshData+", Params: " + JSON.stringify(this.sessionParams, null, 2));
             if (suspend == 0 && this.sessionParams.recording_name) {
                 this.mRecordingName = this.sessionParams.recording_name;
                 this.log(`Recording name: ${this.mRecordingName}`);
             }
-            if (!doNotRefreshData) {
+            if (!doNotRefreshData || this.mPlatformId != this.sessionParams.platid) {
                 this.mUserId = this.sessionParams.localid;
                 this.mPlatformId = this.sessionParams.platid;
                 this.mPlatformKey = (Common.settings.dockerPlatform ? this.sessionID : this.mPlatformId);
                 this.email = this.sessionParams.email;
+                if (this.sessionParams.useNuboGL == "true") {
+                    this.nuboglListenPort = 22468 + Number(this.mUserId);
+                    this.nuboglListenHost = this.sessionParams.platform_ip;
+                }
+                this.log("Session found. Waiting for platform controller. mPlatformKey: " + this.mPlatformKey+", mPlatformId: "+this.mPlatformId+", nuboglListenPort: "+this.nuboglListenPort+", nuboglListenHost: "+this.nuboglListenHost+", useNuboGL: "+this.sessionParams.useNuboGL);
                 this.mPlatformController = await PlatControl.waitForPlatformControl(this.mPlatformKey);
             }
             this.validSession = true;

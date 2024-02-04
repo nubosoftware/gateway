@@ -86,7 +86,7 @@ class PlatformRTPService extends EventEmitter {
                 if (pc) {
                     pc.sendMediaPacket(rtpPacket, rinfo);
                 } else {
-                    //this.log(`Cannot find player connection with platformUserKey: ${rtpPacket.ssrc}`);
+                    this.log(`Cannot find player connection with platformUserKey: ${rtpPacket.ssrc}`);
                 }
             } catch (err) {
                 this.log(`Error parsing RTP packet: ${err}`);
