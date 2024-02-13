@@ -509,8 +509,11 @@ class PlayerConn extends NetConn {
             playerConnectionsByTokens[audioToken] = this;
             this.mPlayerAudioToken = audioToken;
         }
+
         this.rtpAudioUpInetAddress = session.sessionParams.platform_ip;
         this.rtpAudioUpPort = session.sessionParams.audioStreamPort;
+        this.mSession.mWidth = this.mWidth;
+        this.mSession.mHeight = this.mHeight;
 
         this.setCompression(true, true);
 
@@ -916,10 +919,23 @@ class PlayerConn extends NetConn {
         }
         const platformRTPService = require('./platformRTPService').PlatformRTPService.getInstance();
         if (platformRTPService) {
+            // check if we have the user resolution and send it to the nubo gl
+            if (isStart && this.mSession.mWidth > 0 && this.mSession.mHeight > 0) {
+                const buf1 = Buffer.allocUnsafe(9);
+                buf1.writeInt8(4);
+                buf1.writeInt32LE(this.mSession.mWidth, 1);
+                buf1.writeInt32LE(this.mSession.mHeight, 5);
+                platformRTPService.sendPacket(buf1, this.mSession.nuboglListenHost, this.mSession.nuboglListenPort);
+                this.info(`send resolution to nubo gl: 4, ${this.mSession.mWidth}, ${this.mSession.mHeight}`);
+            } else {
+                this.info(`send resolution to nubo gl. No resolution found`);
+            }
+
+
             let buf = Buffer.allocUnsafe(1);
             buf.writeUInt8(isStart ? 1 : 2);
             platformRTPService.sendPacket(buf, this.mSession.nuboglListenHost, this.mSession.nuboglListenPort);
-            this.info(`sendPacket to nubo gl: ${isStart ? 1 : 2}`);
+            this.info(`send start to nubo gl: ${isStart ? 1 : 2}`);
         }
     }
 
