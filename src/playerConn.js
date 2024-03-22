@@ -186,6 +186,7 @@ class PlayerConn extends NetConn {
             case PlayerCmd.camera_previewFrame:
             case PlayerCmd.camera_callback:
             case PlayerCmd.sensor_callback:
+            case PlayerCmd.intent_callback:
             case PlayerCmd.srfc_event:
             case PlayerCmd.authenticateNuboAppResponse:
                 await pc.sendCmdToApplication(iPlayerCmd, bytesCount);
@@ -920,16 +921,16 @@ class PlayerConn extends NetConn {
         const platformRTPService = require('./platformRTPService').PlatformRTPService.getInstance();
         if (platformRTPService) {
             // check if we have the user resolution and send it to the nubo gl
-            if (isStart && this.mSession.mWidth > 0 && this.mSession.mHeight > 0) {
-                const buf1 = Buffer.allocUnsafe(9);
-                buf1.writeInt8(4);
-                buf1.writeInt32LE(this.mSession.mWidth, 1);
-                buf1.writeInt32LE(this.mSession.mHeight, 5);
-                platformRTPService.sendPacket(buf1, this.mSession.nuboglListenHost, this.mSession.nuboglListenPort);
-                this.info(`send resolution to nubo gl: 4, ${this.mSession.mWidth}, ${this.mSession.mHeight}`);
-            } else {
-                this.info(`send resolution to nubo gl. No resolution found`);
-            }
+            // if (isStart && this.mSession.mWidth > 0 && this.mSession.mHeight > 0) {
+            //     const buf1 = Buffer.allocUnsafe(9);
+            //     buf1.writeInt8(4);
+            //     buf1.writeInt32LE(this.mSession.mWidth, 1);
+            //     buf1.writeInt32LE(this.mSession.mHeight, 5);
+            //     platformRTPService.sendPacket(buf1, this.mSession.nuboglListenHost, this.mSession.nuboglListenPort);
+            //     this.info(`send resolution to nubo gl: 4, ${this.mSession.mWidth}, ${this.mSession.mHeight}`);
+            // } else {
+            //     this.info(`send resolution to nubo gl. No resolution found`);
+            // }
 
 
             let buf = Buffer.allocUnsafe(1);

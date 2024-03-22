@@ -69,6 +69,7 @@ const PlayerCmd = Object.freeze({
     camera_previewFrame: 62,
     camera_callback: 63,
     sensor_callback: 64,
+    intent_callback: 65,
 
     // OpenGL
     gl_Return: 90,
