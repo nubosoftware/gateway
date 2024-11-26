@@ -161,18 +161,9 @@ class PlatConn extends NetConn {
 
     async sendCmd(bytesCount, processId, cmdcode, wndId, isPlatformCmd, data) {
         let wroteData = false;
-        let playerConn = null;
         if (this.mSession) {
-            let isFlush = (cmdcode > DrawCmd.IMMEDIATE_COMMAND || cmdcode == DrawCmd.drawPlayerLoginAck || cmdcode < 0 || cmdcode == DrawCmd.openGLVideoPacket);
+            let isFlush = (cmdcode > DrawCmd.IMMEDIATE_COMMAND || cmdcode == DrawCmd.drawPlayerLoginAck || cmdcode < 0 || cmdcode == DrawCmd.openGLVideoPacket || cmdcode === DrawCmd.mediaCodecCmd);
             wroteData = await this.mSession.writeToClient(bytesCount,processId,cmdcode,wndId,data,isFlush, this.mChannelType, this.mChannelIdx);
-            /*playerConn = this.mSession.mPlayerConnection;
-            if (playerConn) {
-                let isFlush = (cmdcode > DrawCmd.IMMEDIATE_COMMAND || cmdcode == DrawCmd.drawPlayerLoginAck || cmdcode < 0 || cmdcode == DrawCmd.openGLVideoPacket);
-                playerConn.writeToClient(bytesCount, processId, cmdcode, wndId, data, isFlush);
-                wroteData = true;
-            } else {
-
-            }*/
         }
         if (!wroteData) {
             this.info(`Cannot write data as player connection is not available. this.mSession: ${this.mSessionId}, cmdcode: ${( cmdcode)}`);

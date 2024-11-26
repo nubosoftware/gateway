@@ -14,7 +14,8 @@ const mgmtCall = require('./mgmtCall');
 const tls = require('tls');
 const process = require('process');
 const guac = require('./guac');
-
+const fs = require('fs').promises;
+const path = require('path');
 const {
     PlayerCmd,
     PlatformCtrlCmd,
@@ -182,9 +183,30 @@ let updateGWInterval;
 
 async function registerGateway(service, isSsl) {
     const data = Common.settings;
+    let version, buildTime;
+    try {
+        // Attempt to read version.txt
+        const versionContent = await fs.readFile(path.join(__dirname, '../version.txt'), 'utf8');
+        const versionLines = versionContent.split('\n');
+        versionLines.forEach(line => {
+            const separatorIndex = line.indexOf(':');
+            if (separatorIndex === -1) return;
+            const key = line.slice(0, separatorIndex).trim();
+            const value = line.slice(separatorIndex + 1).trim();
+            if (key === 'VERSION') {
+                version = value;
+            } else if (key === 'BUILD_TIME') {
+                buildTime = value;
+            }
+        });
+    } catch (fileErr) {
+        logger.warn(`mgmtPublicRegistration::registerPromise: Unable to read version.txt: ${fileErr}`);
+        // Keep version and buildTime as undefined
+    }
     let isSuccess = false;
     while (!isSuccess) {
         try {
+            clearInterval(updateGWInterval); // make sure not to have multiple interval
             let internal_ip,external_ip,port,ssl;
             if (data.external_url && data.external_url != "") {
                 const exURL = new URL(data.external_url);
@@ -200,6 +222,7 @@ async function registerGateway(service, isSsl) {
             if (!internal_ip || internal_ip == "auto") {
                 internal_ip = await detectIP();
             }
+            console.log(`Try to register gateway`);
             let url = "/redisGateway/registerGateway?baseIndex=" + data.base_index + "&offset=" + registeredGWs;
             url = url + "&internal_ip=" + internal_ip;
             url = url + "&controller_port=" + (data.platformControlPort ? data.platformControlPort : 8891 );
@@ -207,6 +230,12 @@ async function registerGateway(service, isSsl) {
             url = url + "&external_ip=" + external_ip;
             url = url + "&player_port=" + port;
             url = url + "&ssl=" + ssl;
+            if (version) {
+                url = url + "&version=" + encodeURIComponent(version);
+            }
+            if (buildTime) {
+                url = url + "&buildTime=" + encodeURIComponent(buildTime);
+            }
 
             let response = await mgmtCall.get({
                 url,
