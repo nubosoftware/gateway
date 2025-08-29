@@ -11,6 +11,7 @@ const PlatConn = require('./platConn');
 const { PlatformRTPService } = require('./platformRTPService');
 const { PlayerRTPSocket } = require('./playerRTPSocket');
 const mgmtCall = require('./mgmtCall');
+const kek = require('./kek.js');
 const tls = require('tls');
 const process = require('process');
 const guac = require('./guac');
@@ -31,7 +32,11 @@ async function loadSecureContext() {
     const readFile = require('fs').promises.readFile;
     if (Common.settings.tlsOptions) {
         try {
-            Common.settings.tlsOptions.key = await readFile(Common.settings.tlsOptions.keyfile);
+            // Use KEK to read private key (handles both encrypted and unencrypted keys)
+            const keyContent = await kek.readPrivateKey(Common.settings.tlsOptions.keyfile);
+
+            Common.settings.tlsOptions.key = Buffer.from(keyContent, 'utf8');
+            // logger.info(`Loaded key from ${Common.settings.tlsOptions.keyfile}. Length: ${keyContent.length}`);
             Common.settings.tlsOptions.cert = await readFile(Common.settings.tlsOptions.certfile);
             if (Common.settings.tlsOptions.cafile) {
                 logger.info("Loading cafile..");
@@ -40,7 +45,11 @@ async function loadSecureContext() {
             secureCtx = tls.createSecureContext(Common.settings.tlsOptions);
             watchCertFile();
         } catch (err) {
-            logger.error(`Unable to create TLS context: ${err}`,err);
+            if (err.message && err.message.includes('private key')) {
+                logger.error(`Cannot read private key file ${Common.settings.tlsOptions.keyfile}: ${err.message}`, err);
+            } else {
+                logger.error(`Unable to create TLS context: ${err}`, err);
+            }
         }
     }
 }
@@ -310,5 +319,3 @@ async function updateGWTTL(idx,service,isSsl) {
 }
 
 main();
-
-
