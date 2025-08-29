@@ -10,7 +10,11 @@ const path = require('path');
  * Provides optional encryption/decryption for TLS private keys using a master key
  */
 
-const MASTER_KEY_PATH = '/run/nubo/mk.bin';
+const MASTER_KEY_PATHS = [
+    '/tmp/nubo/mk.bin',        // Docker runtime location (writable, preferred)
+    '/run/nubo/mk.bin',        // Original location (fallback)
+    '/opt/nubogateway/mk.bin'  // Alternative app location
+];
 const ALGORITHM = 'aes-256-cbc';
 const IV_LENGTH = 16; // 128 bits for CBC
 const TAG_LENGTH = 0; // CBC doesn't use auth tags
@@ -28,6 +32,7 @@ const PRIVATE_KEY_HEADERS = [
 
 let masterKeyCache = null;
 let masterKeyAvailable = null;
+let masterKeyPath = null; // Cache the successful path
 
 /**
  * Check if master key file exists and is readable
@@ -38,14 +43,23 @@ async function isMasterKeyAvailable() {
         return masterKeyAvailable;
     }
     
-    try {
-        await fsp.access(MASTER_KEY_PATH, fs.constants.R_OK);
-        masterKeyAvailable = true;
-        return true;
-    } catch (error) {
-        masterKeyAvailable = false;
-        return false;
+    // Try each path in order until we find a readable one
+    for (const keyPath of MASTER_KEY_PATHS) {
+        try {
+            await fsp.access(keyPath, fs.constants.R_OK);
+            masterKeyAvailable = true;
+            masterKeyPath = keyPath;
+            console.log(`KEK: Using master key from ${keyPath}`);
+            return true;
+        } catch (error) {
+            // Continue to next path
+            continue;
+        }
     }
+    
+    masterKeyAvailable = false;
+    masterKeyPath = null;
+    return false;
 }
 
 /**
@@ -62,14 +76,14 @@ async function getMasterKey() {
     }
     
     try {
-        const keyData = await fsp.readFile(MASTER_KEY_PATH);
+        const keyData = await fsp.readFile(masterKeyPath);
         if (keyData.length !== 32) {
             throw new Error('Master key must be exactly 32 bytes');
         }
         masterKeyCache = keyData;
         return masterKeyCache;
     } catch (error) {
-        throw new Error(`Failed to read master key: ${error.message}`);
+        throw new Error(`Failed to read master key from ${masterKeyPath}: ${error.message}`);
     }
 }
 
