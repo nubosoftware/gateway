@@ -58,24 +58,22 @@ module.exports = {
   module: {
 
     rules: [
-      {
+      /*{
         // Transpiles ES6-8 into ES5
         test: /\.js$/,
-        exclude: [
-            /node_modules/,
-            path.resolve(__dirname, 'common.js'),
-            path.resolve(__dirname, "node_modules")
-        ],
-        /*use: {
-          loader: "babel-loader"
-        }*/
+        exclude: /node_modules/,
         enforce: 'post',
         use: {
             loader: WebpackObfuscator.loader,
             options: {
-                rotateStringArray: true
+                rotateStringArray: true,
+                reservedStrings: ['\\.\\/(.*?)\\.js']
             }
         }
+      },*/
+      {
+        test: /\.js$/,
+        exclude: /node_modules/,
       },
       { test: /\.pl$/, loader: 'ignore-loader' },
       { test: /\.xml$/, loader: 'ignore-loader' },

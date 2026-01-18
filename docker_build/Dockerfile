@@ -1,4 +1,4 @@
-FROM ubuntu:20.04 as builder
+FROM ubuntu:22.04 as builder
 ARG BUILD_VER=3.2
 ENV DEBIAN_FRONTEND noninteractive
 RUN sed -i "s/# deb-src/deb-src/g" /etc/apt/sources.list
@@ -24,7 +24,7 @@ ARG BUILD_DEPENDENCIES="              \
         git                           \
         libcairo2-dev                 \
         libgcrypt-dev                 \
-        libjpeg-dev           \
+        libjpeg-dev                   \
         libossp-uuid-dev              \
         libpango1.0-dev               \
         libpulse-dev                  \
@@ -38,7 +38,7 @@ ARG BUILD_DEPENDENCIES="              \
         libavcodec-dev                \
         libavformat-dev               \
         libavutil-dev                 \
-        libswscale-dev               \
+        libswscale-dev                \
         make"
 
 
@@ -56,6 +56,28 @@ RUN mkdir -p "${PREFIX_DIR}/bin/" && \
     cp -a ${BUILD_DIR}/src/guacd-docker/bin/* "${PREFIX_DIR}/bin/."
 #COPY guacamole-server/src/guacd-docker/bin "${PREFIX_DIR}/bin/"
 
+# Patch build-guacd.sh to fix OpenSSL 3.0 deprecated warnings
+RUN cat > "${PREFIX_DIR}/bin/build-guacd.sh" <<'BUILD_SCRIPT_EOF'
+#!/bin/sh -e
+BUILD_DIR="$1"
+PREFIX_DIR="$2"
+
+cd "$BUILD_DIR"
+autoreconf -fi
+
+# Export CFLAGS to suppress OpenSSL 3.0 deprecation warnings
+export CFLAGS="-Wno-error=deprecated-declarations"
+export CXXFLAGS="-Wno-error=deprecated-declarations"
+
+./configure --prefix="$PREFIX_DIR" --disable-guaclog --with-freerdp-plugin-dir="$PREFIX_DIR/lib/freerdp2"
+
+# Pass CFLAGS explicitly to make
+make CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS"
+make install
+ldconfig
+BUILD_SCRIPT_EOF
+RUN chmod +x "${PREFIX_DIR}/bin/build-guacd.sh"
+
 # Copy source to container for sake of build
 #COPY guacamole-server "$BUILD_DIR"
 
@@ -71,7 +93,7 @@ RUN ${PREFIX_DIR}/bin/list-dependencies.sh     \
         > ${PREFIX_DIR}/DEPENDENCIES
 
 
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 ARG BUILD_VER=3.2
 ARG TARGET_DIR=/opt/nubogateway
 RUN apt-get -y update
@@ -129,7 +151,7 @@ RUN mkdir -p $FREERDP_PLUGIN_DIR && \
 
 
 # install nodejs
-RUN curl -fsSL https://deb.nodesource.com/setup_16.x | bash -
+RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
 RUN apt install -y nodejs
 
 # mark this as docker installation
