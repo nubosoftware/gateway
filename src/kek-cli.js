@@ -19,6 +19,7 @@ Commands:
   encrypt <input-file> [output-file]    Encrypt a private key file
   decrypt <input-file> [output-file]    Decrypt an encrypted private key file
   check <input-file>                    Check if file is encrypted and validate
+  migrate <input-file>                  Re-encrypt a key file using the current format
   status                                Show master key status
 
 Examples:
@@ -26,6 +27,7 @@ Examples:
   node kek-cli.js encrypt server.key server_encrypted.key
   node kek-cli.js decrypt server.key.encrypted server.key
   node kek-cli.js check server.key
+  node kek-cli.js migrate server.key
   node kek-cli.js status
 
 Options:
@@ -186,6 +188,59 @@ class KEKCli {
         }
     }
 
+    async migrateCommand(args) {
+        if (args.length < 1) {
+            this.error('Input file path is required');
+            this.log(USAGE);
+            process.exit(1);
+        }
+
+        const inputFile = args[0];
+
+        this.verboseLog(`Migrating file: ${inputFile}`);
+
+        try {
+            const masterKeyAvail = await kek.isMasterKeyAvailable();
+            if (!masterKeyAvail) {
+                this.error('Master key not available');
+                this.log('Ensure the master key file exists and is readable.');
+                process.exit(1);
+            }
+
+            if (!fs.existsSync(inputFile)) {
+                this.error(`Input file does not exist: ${inputFile}`);
+                process.exit(1);
+            }
+
+            const keyContent = fs.readFileSync(inputFile, 'utf8');
+
+            if (!kek.isKeyEncrypted(keyContent)) {
+                this.log(`File is not encrypted, nothing to migrate: ${inputFile}`);
+                this.log('Use the "encrypt" command to encrypt a plaintext key.');
+                return;
+            }
+
+            // Decrypt (legacy fallback handles old format automatically)
+            const decrypted = await kek.decryptPrivateKey(keyContent);
+            // Re-encrypt with current format (createCipheriv)
+            const reEncrypted = await kek.encryptPrivateKey(decrypted);
+
+            // Write backup then overwrite
+            const backupPath = `${inputFile}.bak`;
+            fs.writeFileSync(backupPath, keyContent, 'utf8');
+            fs.chmodSync(backupPath, 0o600);
+            fs.writeFileSync(inputFile, reEncrypted, 'utf8');
+
+            this.log(`✓ Successfully migrated key file to current format`);
+            this.log(`  File:   ${inputFile}`);
+            this.log(`  Backup: ${backupPath}`);
+
+        } catch (error) {
+            this.error(error.message);
+            process.exit(1);
+        }
+    }
+
     async statusCommand() {
         this.verboseLog('Checking system status');
 
@@ -261,6 +316,10 @@ class KEKCli {
 
             case 'check':
                 await this.checkCommand(commandArgs);
+                break;
+
+            case 'migrate':
+                await this.migrateCommand(commandArgs);
                 break;
 
             case 'status':

@@ -35,6 +35,32 @@ let masterKeyAvailable = null;
 let masterKeyPath = null; // Cache the successful path
 
 /**
+ * Legacy EVP_BytesToKey derivation for backward compatibility with files
+ * encrypted using the removed crypto.createCipher API (Node < 22).
+ * Implements OpenSSL's EVP_BytesToKey with MD5 and no salt.
+ * @param {Buffer} password
+ * @param {number} keyLen
+ * @param {number} ivLen
+ * @returns {{key: Buffer, iv: Buffer}}
+ */
+function evpBytesToKey(password, keyLen, ivLen) {
+    const totalLen = keyLen + ivLen;
+    const blocks = [];
+    let lastBlock = Buffer.alloc(0);
+    while (Buffer.concat(blocks).length < totalLen) {
+        lastBlock = crypto.createHash('md5')
+            .update(Buffer.concat([lastBlock, password]))
+            .digest();
+        blocks.push(lastBlock);
+    }
+    const derived = Buffer.concat(blocks, totalLen);
+    return {
+        key: derived.subarray(0, keyLen),
+        iv: derived.subarray(keyLen, keyLen + ivLen)
+    };
+}
+
+/**
  * Check if master key file exists and is readable
  * @returns {Promise<boolean>}
  */
@@ -135,8 +161,8 @@ async function encryptPrivateKey(keyContent) {
     
     const masterKey = await getMasterKey();
     const iv = crypto.randomBytes(IV_LENGTH);
-    const cipher = crypto.createCipher(ALGORITHM, masterKey);
-    
+    const cipher = crypto.createCipheriv(ALGORITHM, masterKey, iv);
+
     let encrypted = cipher.update(keyContent, 'utf8');
     encrypted = Buffer.concat([encrypted, cipher.final()]);
     
@@ -193,15 +219,26 @@ async function decryptPrivateKey(encryptedContent) {
     // Extract components (no auth tag for CBC)
     const iv = combined.subarray(0, IV_LENGTH);
     const encrypted = combined.subarray(IV_LENGTH);
-    
-    const decipher = crypto.createDecipher(ALGORITHM, masterKey);
-    
+
+    // Try current method first (createCipheriv-encrypted data uses stored IV)
     try {
+        const decipher = crypto.createDecipheriv(ALGORITHM, masterKey, iv);
         let decrypted = decipher.update(encrypted, null, 'utf8');
         decrypted += decipher.final('utf8');
         return decrypted;
-    } catch (error) {
-        throw new Error('Failed to decrypt key: Invalid master key or corrupted data');
+    } catch (_primaryErr) {
+        // Fall back to legacy EVP_BytesToKey derivation for files encrypted
+        // with the old crypto.createCipher API (Node < 22).
+        // That API ignored the stored IV and derived its own key+IV from the password.
+        try {
+            const derived = evpBytesToKey(masterKey, 32, IV_LENGTH);
+            const decipher = crypto.createDecipheriv(ALGORITHM, derived.key, derived.iv);
+            let decrypted = decipher.update(encrypted, null, 'utf8');
+            decrypted += decipher.final('utf8');
+            return decrypted;
+        } catch (_legacyErr) {
+            throw new Error('Failed to decrypt key: Invalid master key or corrupted data');
+        }
     }
 }
 
